@@ -26,9 +26,9 @@ enum Control { PUBLIC, STUDENT, GRADER, PROFESSOR};
 
 struct User
 {
-   const string *name;
+   const char *name;
    const char *password;
-   const string *userGroup;
+   const char *userGroup;
 };
 /******************************************
  * FILE
@@ -72,7 +72,7 @@ public:
    ~StudentGrade();
    string getLetterGrade(); // output letter grade B+
    float  getNumberGrade(); // integral number grade 88
-   void   displayScores(); // display scores on screen
+   void   displayScores(User userSignedIn); // display scores on screen
    void   editScores(); // interactively edit score
    void   setScore( int iScore, float score);
    float  getScore( int iScore);
@@ -313,7 +313,7 @@ void StudentGrade::displayScores(User userSignedIn)
    if (scores.size() == 0)
       return;
 
-   if (name == userSignedIn.userName || userSignedIn.userGroup == "GRADER" )
+   if (name == userSignedIn.name || userSignedIn.userGroup == "GRADER" )
    {
    // name
    cout << "Student name:\n\t"
@@ -421,7 +421,7 @@ class Interface
 public:
    Interface();
 
-   void display();
+   void display(User userSignedIn);
    void interact(User userSingedIn);
 private:
    int promptForStudent();
@@ -500,17 +500,17 @@ Interface::Interface()
  * DISPLAY
  * Display stuff
  *************************************************/
-void Interface::display()
+void Interface::display(User userSignedIn)
 {
    for (int i = 0; i < students.size(); i++)
-      students[i].displayScores();
+      students[i].displayScores(userSignedIn);
 }
 
 /**************************************************************
  * USER
  * All the users currently in the system
  *************************************************************/
-const users[] =
+const User users[] =
 {
    { "Bob",  "passwordBob", "GRADER" },
    { "Hans", "passwordHans", "GRADER" },
@@ -524,7 +524,7 @@ const users[] =
 /**********************************************
  * authenticate the user
  *********************************************/
-int authenticate(User &userSignedIn)
+int authenticate(User userSignedIn)
 {
    // prompt for username
    string name;
@@ -541,7 +541,7 @@ int authenticate(User &userSignedIn)
       if (name     == string(users[idUser].name    ) &&
           password == string(users[idUser].password))
           {
-             userSignedIn.name = name;
+             userSignedIn.name = users[idUser].name;
              userSignedIn.userGroup = users[idUser].userGroup;
              return idUser;
           }
@@ -559,7 +559,7 @@ int authenticate(User &userSignedIn)
  ********************************************/
 int main()
 {
-   User userSignedIn = new User;      
+   User userSignedIn;   
    authenticate(userSignedIn);
    
    Interface interface;
