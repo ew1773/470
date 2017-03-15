@@ -1,0 +1,204 @@
+<html><body><div class=WordSection1><p style="font-family:Consolas;font-size:11;margin-top:6pt;margin-bottom:6pt"><span style="color:#929ca0">/***********************************************************************<br/>
+&nbsp;*&nbsp;Module:<br/>
+&nbsp;*&nbsp;&nbsp;&nbsp;&nbsp;Week&nbsp;05,&nbsp;Stack<br/>
+&nbsp;*&nbsp;&nbsp;&nbsp;&nbsp;Brother&nbsp;Helfrich,&nbsp;CS&nbsp;470<br/>
+&nbsp;*&nbsp;Author:<br/>
+&nbsp;*&nbsp;&nbsp;&nbsp;&nbsp;Br.&nbsp;Helfrich<br/>
+&nbsp;*&nbsp;Summary:<br/>
+&nbsp;*&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;program&nbsp;will&nbsp;implement&nbsp;a&nbsp;stack<br/>
+&nbsp;************************************************************************/</span><br/>
+<br/>
+<span style="color:#2c62ba">#ifndef</span>&nbsp;STACK_H<br/>
+<span style="color:#2c62ba">#define</span>&nbsp;STACK_H<br/>
+<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;cassert&gt;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;because&nbsp;I&nbsp;am&nbsp;paranoid</span><br/>
+<br/>
+<span style="color:#929ca0">/**************************************************<br/>
+&nbsp;*&nbsp;STACK<br/>
+&nbsp;*&nbsp;First-in-Last-out&nbsp;data&nbsp;structure<br/>
+&nbsp;*************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+<span style="color:#2c62ba">class</span>&nbsp;Stack<br/>
+{<br/>
+<span style="color:#2c62ba">public</span>:<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;constructors&nbsp;and&nbsp;destructors</span><br/>
+&nbsp;&nbsp;&nbsp;Stack()&nbsp;:&nbsp;data(NULL),&nbsp;capacity(0),&nbsp;num(0)&nbsp;{&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;Stack(<span style="color:#2c62ba">int</span>&nbsp;capacity)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);<br/>
+&nbsp;&nbsp;&nbsp;Stack(<span style="color:#2c62ba">const</span>&nbsp;Stack&lt;T&gt;&nbsp;&amp;&nbsp;rhs)&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);;<br/>
+&nbsp;&nbsp;&nbsp;~Stack()&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!empty())&nbsp;<span style="color:#2c62ba">delete</span>&nbsp;[]&nbsp;data;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;assignment&nbsp;operator</span><br/>
+&nbsp;&nbsp;&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;&amp;&nbsp;<span style="color:#2c62ba">operator</span>&nbsp;=&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;&amp;&nbsp;rhs)&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);<br/>
+&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;standard&nbsp;container&nbsp;interfaces</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;empty()&nbsp;<span style="color:#2c62ba">const</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;<span style="color:#2c62ba">return</span>&nbsp;num&nbsp;==&nbsp;0;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;&nbsp;size&nbsp;()&nbsp;<span style="color:#2c62ba">const</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;<span style="color:#2c62ba">return</span>&nbsp;num;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;stack-specific&nbsp;interfaces</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">void</span>&nbsp;pop()&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);<br/>
+&nbsp;&nbsp;&nbsp;T&nbsp;&amp;&nbsp;&nbsp;top()&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">const</span>&nbsp;T&nbsp;&amp;&nbsp;const_top()&nbsp;<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">void</span>&nbsp;push(<span style="color:#2c62ba">const</span>&nbsp;T&nbsp;&amp;&nbsp;t)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);<br/>
+&nbsp;&nbsp;<br/>
+<span style="color:#2c62ba">private</span>:<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">void</span>&nbsp;grow(<span style="color:#2c62ba">int</span>&nbsp;capacity&nbsp;=&nbsp;0)&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*);<br/>
+&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;T&nbsp;*&nbsp;data;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;dynamically&nbsp;allocated&nbsp;data&nbsp;for&nbsp;the&nbsp;stack</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;capacity;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;the&nbsp;size&nbsp;of&nbsp;the&nbsp;data&nbsp;array</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;num;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;the&nbsp;number&nbsp;of&nbsp;items&nbsp;currently&nbsp;used&nbsp;in&nbsp;the&nbsp;array</span><br/>
+};<br/>
+<br/>
+<span style="color:#929ca0">/**********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;copy&nbsp;constructor<br/>
+&nbsp;*********************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;Stack&nbsp;(<span style="color:#2c62ba">int</span>&nbsp;newCapacity)&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;initially&nbsp;empty</span><br/>
+&nbsp;&nbsp;&nbsp;data&nbsp;=&nbsp;NULL;<br/>
+&nbsp;&nbsp;&nbsp;capacity&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;num&nbsp;=&nbsp;0;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;allocate&nbsp;the&nbsp;buffer</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">assert</span>(newCapacity&nbsp;&gt;=&nbsp;0);<br/>
+&nbsp;&nbsp;&nbsp;grow(newCapacity);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;this&nbsp;could&nbsp;throw</span><br/>
+}<br/>
+<br/>
+<span style="color:#929ca0">/**********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;copy&nbsp;constructor<br/>
+&nbsp;*********************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;Stack&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;&amp;&nbsp;rhs)&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;data&nbsp;=&nbsp;NULL;<br/>
+&nbsp;&nbsp;&nbsp;capacity&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;num&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;*this&nbsp;=&nbsp;rhs;<br/>
+}<br/>
+<br/>
+<span style="color:#929ca0">/*********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;assign<br/>
+&nbsp;*&nbsp;Copy&nbsp;one&nbsp;stack&nbsp;onto&nbsp;another<br/>
+&nbsp;********************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+Stack&lt;T&gt;&nbsp;&amp;&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;<span style="color:#2c62ba">operator</span>&nbsp;=&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;&amp;&nbsp;rhs)&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">assert</span>(rhs.capacity&nbsp;&gt;=&nbsp;0);<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">assert</span>(rhs.num&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&gt;=&nbsp;0);<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">assert</span>(rhs.num&nbsp;&lt;=&nbsp;rhs.capacity);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;delete&nbsp;the&nbsp;old&nbsp;stack&nbsp;if&nbsp;one&nbsp;exists</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!empty())<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">delete</span>&nbsp;[]&nbsp;data;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;data&nbsp;=&nbsp;NULL;<br/>
+&nbsp;&nbsp;&nbsp;capacity&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;num&nbsp;=&nbsp;0;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;do&nbsp;nothing&nbsp;if&nbsp;there&nbsp;is&nbsp;nothing&nbsp;to&nbsp;do</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(rhs.empty())<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;*this;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;copy&nbsp;the&nbsp;contents&nbsp;of&nbsp;the&nbsp;right-hand-side</span><br/>
+&nbsp;&nbsp;&nbsp;grow(num&nbsp;=&nbsp;rhs.num);&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;this&nbsp;could&nbsp;throw</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">for</span>&nbsp;(<span style="color:#2c62ba">int</span>&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;rhs.num;&nbsp;i++)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data[i]&nbsp;=&nbsp;rhs.data[i];<br/>
+&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;*this;<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#929ca0">/********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;TOP<br/>
+&nbsp;*&nbsp;Returns&nbsp;a&nbsp;reference&nbsp;to&nbsp;the&nbsp;top&nbsp;element&nbsp;in&nbsp;the&nbsp;stack.&nbsp;<br/>
+&nbsp;*******************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+T&nbsp;&amp;&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;top()&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;if&nbsp;an&nbsp;element&nbsp;is&nbsp;not&nbsp;present&nbsp;in&nbsp;the&nbsp;stack,&nbsp;throw</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(empty())<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;<span style="color:#466ba6">"ERROR:&nbsp;Unable&nbsp;to&nbsp;reference&nbsp;the&nbsp;element&nbsp;from&nbsp;an&nbsp;empty&nbsp;Stack"</span>;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;data[num&nbsp;-&nbsp;1];<br/>
+}<br/>
+<br/>
+<span style="color:#929ca0">/********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;TOP<br/>
+&nbsp;*&nbsp;Returns&nbsp;a&nbsp;reference&nbsp;to&nbsp;the&nbsp;top&nbsp;element&nbsp;in&nbsp;the&nbsp;stack.&nbsp;<br/>
+&nbsp;*******************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+<span style="color:#2c62ba">const</span>&nbsp;T&nbsp;&amp;&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;const_top()&nbsp;<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;if&nbsp;an&nbsp;element&nbsp;is&nbsp;not&nbsp;present&nbsp;in&nbsp;the&nbsp;stack,&nbsp;throw</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(empty())<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;<span style="color:#466ba6">"ERROR:&nbsp;Unable&nbsp;to&nbsp;reference&nbsp;the&nbsp;element&nbsp;from&nbsp;an&nbsp;empty&nbsp;Stack"</span>;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;data[num&nbsp;-&nbsp;1];<br/>
+}<br/>
+<br/>
+<span style="color:#929ca0">/********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;POP<br/>
+&nbsp;*&nbsp;Removes&nbsp;the&nbsp;element&nbsp;on&nbsp;top&nbsp;of&nbsp;the&nbsp;stack,&nbsp;effectively&nbsp;reducing&nbsp;its&nbsp;size&nbsp;by<br/>
+&nbsp;*&nbsp;one.<br/>
+&nbsp;*******************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;pop()&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;if&nbsp;an&nbsp;element&nbsp;is&nbsp;not&nbsp;present&nbsp;in&nbsp;the&nbsp;stack,&nbsp;throw</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(empty())<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;<span style="color:#466ba6">"ERROR:&nbsp;Unable&nbsp;to&nbsp;pop&nbsp;from&nbsp;an&nbsp;empty&nbsp;Stack"</span>;<br/>
+&nbsp;&nbsp;&nbsp;num--;<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#929ca0">/********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;PUSH<br/>
+&nbsp;*&nbsp;Inserts&nbsp;a&nbsp;new&nbsp;element&nbsp;at&nbsp;the&nbsp;top&nbsp;of&nbsp;the&nbsp;stack,&nbsp;above&nbsp;its&nbsp;current<br/>
+&nbsp;*&nbsp;top&nbsp;element.&nbsp;The&nbsp;content&nbsp;of&nbsp;this&nbsp;new&nbsp;element&nbsp;is&nbsp;initialized&nbsp;to&nbsp;a<br/>
+&nbsp;*&nbsp;copy&nbsp;of&nbsp;t.<br/>
+&nbsp;*******************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;push(<span style="color:#2c62ba">const</span>&nbsp;T&nbsp;&amp;&nbsp;t)&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;make&nbsp;sure&nbsp;there&nbsp;is&nbsp;room&nbsp;in&nbsp;our&nbsp;stack</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(num&nbsp;==&nbsp;capacity)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;grow();<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;data[num++]&nbsp;=&nbsp;t;<br/>
+}<br/>
+<br/>
+<span style="color:#929ca0">/*********************************************************<br/>
+&nbsp;*&nbsp;STACK&nbsp;::&nbsp;GROW<br/>
+&nbsp;*&nbsp;Grow&nbsp;the&nbsp;size&nbsp;of&nbsp;the&nbsp;stack&nbsp;to&nbsp;(at&nbsp;a&nbsp;minimum)&nbsp;of&nbsp;a&nbsp;given<br/>
+&nbsp;*&nbsp;size.&nbsp;&nbsp;If&nbsp;the&nbsp;size&nbsp;is&nbsp;set&nbsp;to&nbsp;zero,&nbsp;then&nbsp;the&nbsp;capacity&nbsp;will<br/>
+&nbsp;*&nbsp;be&nbsp;doubled.&nbsp;&nbsp;If&nbsp;the&nbsp;stack&nbsp;is&nbsp;currently&nbsp;not&nbsp;empty,&nbsp;the&nbsp;contents<br/>
+&nbsp;*&nbsp;will&nbsp;be&nbsp;copied&nbsp;over&nbsp;to&nbsp;the&nbsp;new&nbsp;buffer<br/>
+&nbsp;*********************************************************/</span><br/>
+<span style="color:#2c62ba">template</span>&nbsp;&lt;class&nbsp;T&gt;<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Stack&nbsp;&lt;T&gt;&nbsp;::&nbsp;grow(<span style="color:#2c62ba">int</span>&nbsp;capacity)&nbsp;<span style="color:#2c62ba">throw</span>(<span style="color:#2c62ba">const</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*)<br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">assert</span>(capacity&nbsp;&gt;=&nbsp;0);<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">assert</span>(num&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&gt;=&nbsp;0);<br/>
+&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;determine&nbsp;the&nbsp;new&nbsp;buffer&nbsp;size</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(capacity&nbsp;==&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;capacity&nbsp;=&nbsp;(<span style="color:#2c62ba">this</span>-&gt;capacity&nbsp;?&nbsp;<span style="color:#2c62ba">this</span>-&gt;capacity&nbsp;*&nbsp;2&nbsp;:&nbsp;2);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;allocate&nbsp;the&nbsp;new&nbsp;buffer</span><br/>
+&nbsp;&nbsp;&nbsp;T&nbsp;*&nbsp;dataNew&nbsp;=&nbsp;new(<span style="color:#2c62ba">std</span>::nothrow)&nbsp;T[capacity];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(NULL&nbsp;==&nbsp;dataNew)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">throw</span>&nbsp;<span style="color:#466ba6">"ERROR:&nbsp;Unable&nbsp;to&nbsp;allocate&nbsp;a&nbsp;new&nbsp;buffer&nbsp;for&nbsp;Stack"</span>;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">this</span>-&gt;capacity&nbsp;=&nbsp;capacity;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;copy&nbsp;the&nbsp;contents&nbsp;of&nbsp;the&nbsp;old&nbsp;buffer&nbsp;over&nbsp;to&nbsp;the&nbsp;new&nbsp;buffer</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">assert</span>(num&nbsp;&lt;=&nbsp;capacity);<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(NULL&nbsp;!=&nbsp;data)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">for</span>&nbsp;(<span style="color:#2c62ba">int</span>&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;num;&nbsp;i++)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dataNew[i]&nbsp;=&nbsp;data[i];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;free&nbsp;the&nbsp;old</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(NULL&nbsp;!=&nbsp;data)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">delete</span>&nbsp;[]&nbsp;data;<br/>
+&nbsp;&nbsp;&nbsp;data&nbsp;=&nbsp;dataNew;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">#endif</span>&nbsp;<span style="color:#929ca0">//&nbsp;STACK_H</span><br/>
+ </p>
+</div></body></html>

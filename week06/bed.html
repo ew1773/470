@@ -1,0 +1,1780 @@
+<html><body><div class=WordSection1><p style="font-family:Consolas;font-size:11;margin-top:6pt;margin-bottom:6pt"><span style="color:#929ca0">/******************************************************************************<br/>
+&nbsp;*<br/>
+&nbsp;*&nbsp;&nbsp;PROGRAM:&nbsp;bed.cpp<br/>
+&nbsp;*<br/>
+&nbsp;*&nbsp;&nbsp;AUTHOR:&nbsp;&nbsp;J.&nbsp;Matt&nbsp;Pontius<br/>
+&nbsp;*<br/>
+&nbsp;*&nbsp;SUMMARY:&nbsp;Compiles&nbsp;and&nbsp;tests&nbsp;user&nbsp;specified&nbsp;source&nbsp;code&nbsp;files&nbsp;according&nbsp;to&nbsp;the<br/>
+&nbsp;*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;user's&nbsp;predefined&nbsp;test&nbsp;instructions&nbsp;file.&nbsp;&nbsp;Results&nbsp;of&nbsp;the&nbsp;test&nbsp;are<br/>
+&nbsp;*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;output&nbsp;to&nbsp;the&nbsp;screen&nbsp;and,&nbsp;optionally,&nbsp;to&nbsp;files&nbsp;if&nbsp;this&nbsp;program&nbsp;is<br/>
+&nbsp;*&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;run&nbsp;in&nbsp;*&nbsp;"grade&nbsp;mode".<br/>
+&nbsp;*<br/>
+&nbsp;******************************************************************************/</span><br/>
+<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;iostream&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;fstream&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;string&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;iomanip&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;math.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;unistd.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;fcntl.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;stdlib.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;stdio.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;sys/time.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;sys/types.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;sys/wait.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;signal.h&gt;<br/>
+<span style="color:#2c62ba">#include</span>&nbsp;&lt;time.h&gt;<br/>
+<span style="color:#2c62ba">using</span>&nbsp;<span style="color:#2c62ba">namespace</span>&nbsp;<span style="color:#2c62ba">std</span>;<br/>
+<br/>
+<span style="color:#2c62ba">#define</span>&nbsp;MYNAME&nbsp;<span style="color:#466ba6">"bed"</span><br/>
+<br/>
+<span style="color:#2c62ba">#define</span>&nbsp;ASSGHOME&nbsp;<span style="color:#466ba6">"/mnt/local/testbed/"</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;file&nbsp;that&nbsp;stores&nbsp;all&nbsp;testing&nbsp;output</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;CLASSLOGFILE&nbsp;<span style="color:#466ba6">"zclass.log"</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;suffix&nbsp;to&nbsp;append&nbsp;to&nbsp;the&nbsp;end&nbsp;of&nbsp;each&nbsp;student's&nbsp;log&nbsp;file</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;LOGSUFFIX&nbsp;<span style="color:#466ba6">".log"</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;suffix&nbsp;that&nbsp;the&nbsp;compile&nbsp;program&nbsp;specified&nbsp;in&nbsp;the&nbsp;assignment&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;appends&nbsp;to&nbsp;each&nbsp;students&nbsp;student's&nbsp;executable&nbsp;file.</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;EXESUFFIX&nbsp;<span style="color:#466ba6">".exe"</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;suffix&nbsp;to&nbsp;append&nbsp;to&nbsp;each&nbsp;student's&nbsp;penalty/grade&nbsp;file</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;GRADESUFFIX&nbsp;<span style="color:#466ba6">".grade"</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;suffix&nbsp;that&nbsp;the&nbsp;compile&nbsp;program&nbsp;specified&nbsp;in&nbsp;the&nbsp;assignment&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;appends&nbsp;to&nbsp;each&nbsp;student's&nbsp;compiler&nbsp;output&nbsp;file.</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;COMPILESUFFIX&nbsp;<span style="color:#466ba6">".compile"</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;maximum&nbsp;number&nbsp;of&nbsp;instructions&nbsp;allowed</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;MAXINSTRUCTS&nbsp;1000<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;maximum&nbsp;number&nbsp;of&nbsp;penalties&nbsp;allowed&nbsp;(Theoretically,&nbsp;there&nbsp;could&nbsp;be</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;more&nbsp;penalties&nbsp;than&nbsp;instructions&nbsp;-&nbsp;a&nbsp;possible&nbsp;source&nbsp;for&nbsp;segmentation</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fault!)</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;MAXPENALTIES&nbsp;1500<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;number&nbsp;of&nbsp;milliseconds&nbsp;to&nbsp;sleep&nbsp;between&nbsp;each&nbsp;test&nbsp;instruction</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;DEFAULTSLEEP&nbsp;35<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;^&nbsp;Changed&nbsp;from&nbsp;100&nbsp;by&nbsp;Seth&nbsp;Grover&nbsp;in&nbsp;order&nbsp;to&nbsp;fulfill&nbsp;Bro.&nbsp;Twitchell's</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;tyranical&nbsp;desires&nbsp;to&nbsp;make&nbsp;the&nbsp;test&nbsp;bed&nbsp;go&nbsp;faster.&nbsp;If&nbsp;the&nbsp;program&nbsp;is</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;too&nbsp;fast,&nbsp;increase&nbsp;this&nbsp;value..</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;MAXARGS&nbsp;5<br/>
+<span style="color:#929ca0">//&nbsp;the&nbsp;maximum&nbsp;number&nbsp;of&nbsp;command&nbsp;line&nbsp;arguments&nbsp;allowed&nbsp;to&nbsp;a&nbsp;student's&nbsp;program.</span><br/>
+<span style="color:#929ca0">//&nbsp;feature&nbsp;added&nbsp;by&nbsp;Dallin&nbsp;Wilcox&nbsp;to&nbsp;make&nbsp;Bro.&nbsp;Helfrich&nbsp;happy.</span><br/>
+<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;These&nbsp;are&nbsp;screen&nbsp;codes&nbsp;taken&nbsp;from&nbsp;the&nbsp;UNIX&nbsp;tput&nbsp;command.&nbsp;&nbsp;See&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;man&nbsp;page&nbsp;on&nbsp;terminfo&nbsp;and&nbsp;tput&nbsp;for&nbsp;more&nbsp;info.&nbsp;&nbsp;They&nbsp;are&nbsp;used&nbsp;for</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;formatting&nbsp;output&nbsp;to&nbsp;the&nbsp;screen.&nbsp;&nbsp;If&nbsp;weird&nbsp;output&nbsp;is&nbsp;observed,&nbsp;this&nbsp;is</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;probably&nbsp;where&nbsp;it's&nbsp;happening.</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;BOLD&nbsp;<span style="color:#466ba6">"\E[0;1m"</span>&nbsp;<span style="color:#929ca0">//[1m"</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;UL&nbsp;<span style="color:#466ba6">"\E[0;4m"</span>&nbsp;<span style="color:#929ca0">//[4m"</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;REVERSE&nbsp;<span style="color:#466ba6">"\E[0;7m"</span>&nbsp;<span style="color:#929ca0">//[7m"</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;BEEP&nbsp;<span style="color:#466ba6">""</span><br/>
+<span style="color:#2c62ba">#define</span>&nbsp;RESET&nbsp;<span style="color:#466ba6">"\E[0m"</span>&nbsp;<span style="color:#929ca0">//[m"</span><br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">struct</span>&nbsp;Assignment<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Stores&nbsp;all&nbsp;the&nbsp;info&nbsp;gathered&nbsp;from&nbsp;the&nbsp;command&nbsp;line&nbsp;arguments&nbsp;and&nbsp;the<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;assignment&nbsp;file.<br/>
+*<br/>
+*&nbsp;Note:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;If&nbsp;a&nbsp;lengthy&nbsp;path&nbsp;is&nbsp;used&nbsp;as&nbsp;the&nbsp;home&nbsp;directory&nbsp;for&nbsp;this&nbsp;program,&nbsp;some&nbsp;of<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;following&nbsp;arrays&nbsp;may&nbsp;have&nbsp;to&nbsp;be&nbsp;enlarged&nbsp;to&nbsp;accomodate.<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;Assignment(<span style="color:#2c62ba">void</span>)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;compileProgram[0]&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;directory&nbsp;where&nbsp;the&nbsp;assignment&nbsp;file&nbsp;is&nbsp;stored</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;assgDir[70];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;directory&nbsp;and&nbsp;file&nbsp;name&nbsp;of&nbsp;the&nbsp;assignment&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;assgFile[70];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Is&nbsp;true&nbsp;if&nbsp;in&nbsp;grade&nbsp;mode,&nbsp;false&nbsp;otherwise</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;gradeMode;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;An&nbsp;array&nbsp;of&nbsp;source&nbsp;code&nbsp;file&nbsp;names&nbsp;that&nbsp;will&nbsp;be&nbsp;tested</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;**sourceFiles;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;length&nbsp;of&nbsp;the&nbsp;sourceFiles&nbsp;array</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;sourceCount;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;current&nbsp;location&nbsp;in&nbsp;the&nbsp;sourceFiles&nbsp;array</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;sourceIndex;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;program&nbsp;to&nbsp;be&nbsp;executed&nbsp;to&nbsp;check&nbsp;each&nbsp;student's&nbsp;source&nbsp;code&nbsp;for</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;style&nbsp;compliance.&nbsp;&nbsp;(This&nbsp;is&nbsp;not&nbsp;currently&nbsp;implemented.)</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;styleProgram[70];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;program&nbsp;to&nbsp;be&nbsp;executed&nbsp;to&nbsp;compile&nbsp;each&nbsp;student's&nbsp;source&nbsp;code</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;compileProgram[70];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;directory&nbsp;and&nbsp;file&nbsp;name&nbsp;of&nbsp;the&nbsp;test&nbsp;instructions&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;testFile[70];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;maximum&nbsp;time&nbsp;limit&nbsp;a&nbsp;program&nbsp;is&nbsp;allowed&nbsp;to&nbsp;run&nbsp;before</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;termination&nbsp;(in&nbsp;seconds).</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;programTimeLimit;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;given&nbsp;if&nbsp;a&nbsp;program&nbsp;exceeds&nbsp;programTimeLimit</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;programTimePenalty;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;amount&nbsp;of&nbsp;time&nbsp;allowed&nbsp;for&nbsp;each&nbsp;line&nbsp;of&nbsp;output&nbsp;to&nbsp;appear&nbsp;from</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;student&nbsp;programs&nbsp;(in&nbsp;milliseconds).</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;defaultTimeLimit;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;given&nbsp;if&nbsp;a&nbsp;program&nbsp;produces&nbsp;warnings&nbsp;during&nbsp;compile.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;compileWarnPenalty;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;given&nbsp;if&nbsp;a&nbsp;program&nbsp;cannot&nbsp;compile.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;compileFailPenalty;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;true,&nbsp;when&nbsp;a&nbsp;program&nbsp;crashes,&nbsp;it&nbsp;will&nbsp;be&nbsp;restarted&nbsp;and&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current&nbsp;test&nbsp;will&nbsp;be&nbsp;resumed.&nbsp;&nbsp;Only&nbsp;one&nbsp;resume&nbsp;per&nbsp;crash&nbsp;is</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allowed.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;resumeFromCrash;<br/>
+};<br/>
+<br/>
+<span style="color:#2c62ba">struct</span>&nbsp;Instruction<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Stores&nbsp;the&nbsp;info&nbsp;for&nbsp;each&nbsp;of&nbsp;the&nbsp;instructions&nbsp;in&nbsp;the&nbsp;test&nbsp;instructions<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;file.&nbsp;&nbsp;This&nbsp;struct&nbsp;is&nbsp;also&nbsp;used&nbsp;to&nbsp;store&nbsp;results&nbsp;gathered&nbsp;from&nbsp;testing&nbsp;a<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;program.<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;Instruction(<span style="color:#2c62ba">void</span>)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;wait&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;points&nbsp;=&nbsp;-1;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;recv&nbsp;=&nbsp;NULL;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;send&nbsp;=&nbsp;NULL;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;start&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stop&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;restart&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;~Instruction(<span style="color:#2c62ba">void</span>)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(recv)&nbsp;delete[]&nbsp;recv;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(send)&nbsp;delete[]&nbsp;send;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">void</span>&nbsp;<span style="color:#2c62ba">operator</span>&nbsp;=&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;Instruction&nbsp;&amp;copyInst);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;greater&nbsp;than&nbsp;zero,&nbsp;the&nbsp;test&nbsp;program&nbsp;will&nbsp;sleep&nbsp;for&nbsp;that&nbsp;amount</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;of&nbsp;time&nbsp;(in&nbsp;milliseconds).</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;wait;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;greater&nbsp;than&nbsp;-1,&nbsp;a&nbsp;new&nbsp;section&nbsp;in&nbsp;the&nbsp;test&nbsp;will&nbsp;be&nbsp;dillineated,</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;and&nbsp;points&nbsp;assigned&nbsp;to&nbsp;the&nbsp;new&nbsp;section.&nbsp;&nbsp;If&nbsp;equal&nbsp;to&nbsp;0,&nbsp;a&nbsp;new&nbsp;section</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;will&nbsp;be&nbsp;dillineated&nbsp;but&nbsp;no&nbsp;points&nbsp;assigned.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;points;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;non-null,&nbsp;output&nbsp;is&nbsp;expected&nbsp;from&nbsp;the&nbsp;student's&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*recv;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;non-null,&nbsp;input&nbsp;will&nbsp;be&nbsp;provided&nbsp;to&nbsp;the&nbsp;student's&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*send;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;true,&nbsp;the&nbsp;student's&nbsp;program&nbsp;will&nbsp;be&nbsp;started</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;start;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;true,&nbsp;the&nbsp;student's&nbsp;program&nbsp;is&nbsp;expected&nbsp;to&nbsp;self-terminate</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;stop;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;true,&nbsp;the&nbsp;student's&nbsp;program&nbsp;was&nbsp;restarted&nbsp;due&nbsp;to&nbsp;a&nbsp;crash.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;restart;<br/>
+};<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Instruction::<span style="color:#2c62ba">operator</span>&nbsp;=&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;Instruction&nbsp;&amp;copyInst)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;copy&nbsp;constructor&nbsp;for&nbsp;the&nbsp;Instruction&nbsp;struct<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;copyInst&nbsp;-&nbsp;The&nbsp;struct&nbsp;to&nbsp;be&nbsp;copied<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;wait&nbsp;=&nbsp;copyInst.wait;<br/>
+&nbsp;&nbsp;&nbsp;points&nbsp;=&nbsp;copyInst.points;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(copyInst.recv)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(recv)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delete[]&nbsp;recv;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;recv)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;recv&nbsp;=&nbsp;new&nbsp;char[strlen(copyInst.recv)];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(recv,&nbsp;copyInst.recv);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(copyInst.send)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(send)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delete[]&nbsp;send;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;send)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;send&nbsp;=&nbsp;new&nbsp;char[strlen(copyInst.send)];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(send,&nbsp;copyInst.send);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;start&nbsp;=&nbsp;copyInst.start;<br/>
+&nbsp;&nbsp;&nbsp;stop&nbsp;=&nbsp;copyInst.stop;<br/>
+&nbsp;&nbsp;&nbsp;restart&nbsp;=&nbsp;copyInst.restart;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">int</span>&nbsp;<span style="color:#2c62ba">operator</span>&nbsp;==&nbsp;(<span style="color:#2c62ba">const</span>&nbsp;Instruction&nbsp;&amp;leftCompare,&nbsp;<span style="color:#2c62ba">const</span>&nbsp;Instruction&nbsp;&amp;rightCompare)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Overloads&nbsp;the&nbsp;equivalence&nbsp;operator&nbsp;for&nbsp;Instruction&nbsp;structs<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;leftCompare,&nbsp;&amp;rightCompare&nbsp;-&nbsp;The&nbsp;Instruction&nbsp;objects&nbsp;to&nbsp;be&nbsp;compared<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;True&nbsp;if&nbsp;Instructions&nbsp;are&nbsp;equal<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;False&nbsp;otherwise<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(leftCompare.wait&nbsp;!=&nbsp;rightCompare.wait)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(leftCompare.points&nbsp;!=&nbsp;rightCompare.points)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;((leftCompare.recv&nbsp;&amp;&amp;&nbsp;!&nbsp;rightCompare.recv)&nbsp;||<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(!&nbsp;leftCompare.recv&nbsp;&amp;&amp;&nbsp;rightCompare.recv))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(leftCompare.recv&nbsp;&amp;&amp;&nbsp;rightCompare.recv)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(strcmp(leftCompare.recv,&nbsp;rightCompare.recv)&nbsp;!=&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;((leftCompare.send&nbsp;&amp;&amp;&nbsp;!&nbsp;rightCompare.send)&nbsp;||<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(!&nbsp;leftCompare.send&nbsp;&amp;&amp;&nbsp;rightCompare.send))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(leftCompare.send&nbsp;&amp;&amp;&nbsp;rightCompare.send)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(strcmp(leftCompare.send,&nbsp;rightCompare.send)&nbsp;!=&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(leftCompare.start&nbsp;!=&nbsp;rightCompare.start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(leftCompare.stop&nbsp;!=&nbsp;rightCompare.stop)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">struct</span>&nbsp;Penalty<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Used&nbsp;to&nbsp;store&nbsp;a&nbsp;penalty&nbsp;against&nbsp;a&nbsp;student's&nbsp;program<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;Penalty()<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalty&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;comment[0]&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;penalty;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;comment[60];<br/>
+};<br/>
+<br/>
+<span style="color:#2c62ba">class</span>&nbsp;Process<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Defines&nbsp;data&nbsp;members&nbsp;and&nbsp;member&nbsp;functions&nbsp;for&nbsp;handling&nbsp;the&nbsp;UNIX&nbsp;processes<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;which&nbsp;execute&nbsp;student&nbsp;programs.<br/>
+*<br/>
+*&nbsp;Note:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Everything&nbsp;is&nbsp;declared&nbsp;static&nbsp;in&nbsp;this&nbsp;class&nbsp;because&nbsp;the&nbsp;alarm()&nbsp;function<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;requires&nbsp;a&nbsp;pointer&nbsp;to&nbsp;a&nbsp;static&nbsp;function.&nbsp;&nbsp;It&nbsp;would&nbsp;not&nbsp;accept&nbsp;a&nbsp;pointer<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;to&nbsp;the&nbsp;function&nbsp;of&nbsp;an&nbsp;object.&nbsp;&nbsp;Declaring&nbsp;everything&nbsp;static&nbsp;was&nbsp;preferable<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;to&nbsp;declaring&nbsp;them&nbsp;all&nbsp;global.&nbsp;&nbsp;At&nbsp;least&nbsp;this&nbsp;way,&nbsp;a&nbsp;little&nbsp;encapsulation<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;is&nbsp;achieved.<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">private</span>:<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;pointer&nbsp;to&nbsp;the&nbsp;penalty&nbsp;object&nbsp;that&nbsp;is&nbsp;reserved&nbsp;for&nbsp;student</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;program&nbsp;crashes&nbsp;and&nbsp;timeouts.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;Penalty&nbsp;*myPenalty;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;to&nbsp;be&nbsp;assigned&nbsp;for&nbsp;the&nbsp;next&nbsp;student&nbsp;program&nbsp;crash</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;killPenalty;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;to&nbsp;be&nbsp;assigned&nbsp;when&nbsp;the&nbsp;next&nbsp;alarm&nbsp;signal&nbsp;is</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;received.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;timePenalty;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;process&nbsp;id&nbsp;of&nbsp;the&nbsp;last&nbsp;program&nbsp;killed.&nbsp;&nbsp;(This&nbsp;data&nbsp;member&nbsp;is</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;populated&nbsp;but&nbsp;nothing&nbsp;else&nbsp;uses&nbsp;it.)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;killedPid;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;last&nbsp;signal&nbsp;received</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;lastSignal;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;process&nbsp;id&nbsp;of&nbsp;the&nbsp;current&nbsp;student's&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;currentPid;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;pipe&nbsp;for&nbsp;receiving&nbsp;the&nbsp;student&nbsp;program's&nbsp;output</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;inPipe[2];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;pipe&nbsp;for&nbsp;sending&nbsp;input&nbsp;to&nbsp;the&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;outPipe[2];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;file&nbsp;that&nbsp;is&nbsp;mapped&nbsp;to&nbsp;inPipe&nbsp;in&nbsp;order&nbsp;to&nbsp;utilize&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;functionality.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;FILE&nbsp;*inStream;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;file&nbsp;that&nbsp;is&nbsp;mapped&nbsp;to&nbsp;outPipe</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;FILE&nbsp;*outStream;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">public</span>:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;getInPipeNum();<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;getLastSig();<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">void</span>&nbsp;setPenalty(Penalty&nbsp;*newPenalty);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">void</span>&nbsp;setTimePenalty(<span style="color:#2c62ba">int</span>&nbsp;newTimePenalty);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">void</span>&nbsp;setProcessVal(<span style="color:#2c62ba">int</span>&nbsp;newProcessVal);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">void</span>&nbsp;startProc(<span style="color:#2c62ba">char</span>&nbsp;*cmdLine,&nbsp;<span style="color:#2c62ba">int</span>&nbsp;alarmVal,&nbsp;char*&nbsp;args[],&nbsp;<span style="color:#2c62ba">int</span>&nbsp;argc);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">void</span>&nbsp;killPid(<span style="color:#2c62ba">int</span>&nbsp;signalNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;testExit(<span style="color:#2c62ba">bool</span>&nbsp;exitIsEarly,&nbsp;<span style="color:#2c62ba">int</span>&nbsp;&amp;penalty,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*comment,&nbsp;<span style="color:#2c62ba">int</span>&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">int</span>&nbsp;sendString(<span style="color:#2c62ba">char</span>&nbsp;*sendStr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">static</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*getString(<span style="color:#2c62ba">char</span>&nbsp;*theString,&nbsp;<span style="color:#2c62ba">int</span>&nbsp;stringSize);<br/>
+};<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Static&nbsp;member&nbsp;initializers</span><br/>
+Penalty&nbsp;*Process::myPenalty&nbsp;=&nbsp;NULL;<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::inPipe[2]&nbsp;=&nbsp;{0};<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::outPipe[2]&nbsp;=&nbsp;{0};<br/>
+FILE&nbsp;*Process::inStream&nbsp;=&nbsp;NULL;<br/>
+FILE&nbsp;*Process::outStream&nbsp;=&nbsp;NULL;<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::killPenalty&nbsp;=&nbsp;0;<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::timePenalty&nbsp;=&nbsp;0;<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::killedPid&nbsp;=&nbsp;0;<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::lastSignal&nbsp;=&nbsp;0;<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::currentPid&nbsp;=&nbsp;0;<br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::getInPipeNum()<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Returns&nbsp;the&nbsp;file&nbsp;number&nbsp;of&nbsp;the&nbsp;current&nbsp;inPipe.&nbsp;&nbsp;Other&nbsp;functions&nbsp;need&nbsp;this<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;so&nbsp;that&nbsp;they&nbsp;can&nbsp;use&nbsp;the&nbsp;select()&nbsp;function&nbsp;which&nbsp;puts&nbsp;the&nbsp;current&nbsp;process<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;to&nbsp;sleep&nbsp;until&nbsp;data&nbsp;is&nbsp;ready&nbsp;on&nbsp;a&nbsp;pipe.<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;See&nbsp;Summary<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;inPipe[0];<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::getLastSig()<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Returns&nbsp;the&nbsp;signal&nbsp;number&nbsp;of&nbsp;the&nbsp;last&nbsp;signal&nbsp;received.&nbsp;&nbsp;This&nbsp;is&nbsp;used&nbsp;to<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;determine&nbsp;how&nbsp;a&nbsp;program&nbsp;crashed.<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;See&nbsp;Summary<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;lastSignal;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Process::setPenalty(Penalty&nbsp;*newPenalty)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Dedicates&nbsp;a&nbsp;reserved&nbsp;penalty&nbsp;struct&nbsp;for&nbsp;student&nbsp;program&nbsp;crashes&nbsp;and<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;timeouts.<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;*newPenalty&nbsp;-&nbsp;The&nbsp;reserved&nbsp;penalty&nbsp;struct<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;myPenalty&nbsp;=&nbsp;newPenalty;<br/>
+&nbsp;&nbsp;&nbsp;killedPid&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;lastSignal&nbsp;=&nbsp;0;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Process::setTimePenalty(<span style="color:#2c62ba">int</span>&nbsp;newTimePenalty)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Sets&nbsp;the&nbsp;penalty&nbsp;for&nbsp;a&nbsp;student&nbsp;program&nbsp;timeout<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;newTimePenalty&nbsp;-&nbsp;The&nbsp;penalty<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;timePenalty&nbsp;=&nbsp;newTimePenalty;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Process::setProcessVal(<span style="color:#2c62ba">int</span>&nbsp;newProcessVal)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Set&nbsp;the&nbsp;penalty&nbsp;to&nbsp;be&nbsp;assigned&nbsp;on&nbsp;student&nbsp;program&nbsp;crashes<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;newProcessVal&nbsp;-&nbsp;The&nbsp;number&nbsp;of&nbsp;points&nbsp;to&nbsp;be&nbsp;penalized<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;killPenalty&nbsp;=&nbsp;newProcessVal;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Process::startProc(<span style="color:#2c62ba">char</span>&nbsp;*cmdLine,&nbsp;<span style="color:#2c62ba">int</span>&nbsp;alarmVal,&nbsp;char*&nbsp;args[],&nbsp;<span style="color:#2c62ba">int</span>&nbsp;argc&nbsp;=&nbsp;0)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Executes&nbsp;a&nbsp;student's&nbsp;program&nbsp;in&nbsp;its&nbsp;own&nbsp;process.&nbsp;&nbsp;Pipes&nbsp;are&nbsp;established<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;to&nbsp;that&nbsp;process.<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;*cmdLine&nbsp;-&nbsp;The&nbsp;command&nbsp;line&nbsp;to&nbsp;be&nbsp;executed<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;alarmVal&nbsp;-&nbsp;The&nbsp;number&nbsp;of&nbsp;seconds&nbsp;to&nbsp;set&nbsp;the&nbsp;alarm&nbsp;for<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;special&nbsp;array&nbsp;that&nbsp;holds&nbsp;environment&nbsp;variables</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">extern</span>&nbsp;<span style="color:#2c62ba">char</span>&nbsp;**environ;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Create&nbsp;inPipe</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(pipe(inPipe))<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"In&nbsp;Pipe&nbsp;creation&nbsp;failed"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Create&nbsp;outPipe</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(pipe(outPipe))<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Out&nbsp;Pipe&nbsp;creation&nbsp;failed"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Set&nbsp;inPipe&nbsp;so&nbsp;that&nbsp;it&nbsp;will&nbsp;not&nbsp;freeze&nbsp;if&nbsp;no&nbsp;output&nbsp;is&nbsp;available</span><br/>
+&nbsp;&nbsp;&nbsp;fcntl(inPipe[0],&nbsp;F_SETFL,&nbsp;O_NONBLOCK);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Assign&nbsp;inStream&nbsp;to&nbsp;inPipe</span><br/>
+&nbsp;&nbsp;&nbsp;inStream&nbsp;=&nbsp;fdopen(inPipe[0],&nbsp;<span style="color:#466ba6">"r"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Assign&nbsp;outStream&nbsp;to&nbsp;outPipe</span><br/>
+&nbsp;&nbsp;&nbsp;outStream&nbsp;=&nbsp;fdopen(outPipe[1],&nbsp;<span style="color:#466ba6">"w"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Eliminate&nbsp;buffers&nbsp;on&nbsp;inStream&nbsp;and&nbsp;outStream.&nbsp;&nbsp;(I've&nbsp;never&nbsp;verified</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;this&nbsp;actually&nbsp;eliminates&nbsp;the&nbsp;buffers.)</span><br/>
+&nbsp;&nbsp;&nbsp;setbuf(inStream,&nbsp;NULL);<br/>
+&nbsp;&nbsp;&nbsp;setbuf(outStream,&nbsp;NULL);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;killedPid&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Fork&nbsp;the&nbsp;program&nbsp;into&nbsp;two&nbsp;identical&nbsp;processes</span><br/>
+&nbsp;&nbsp;&nbsp;currentPid&nbsp;=&nbsp;fork();<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(currentPid&nbsp;==&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Fork&nbsp;Error"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;this&nbsp;is&nbsp;the&nbsp;child&nbsp;process</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(currentPid&nbsp;==&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Assign&nbsp;the&nbsp;standard&nbsp;input&nbsp;to&nbsp;the&nbsp;outPipe</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(dup2(outPipe[0],&nbsp;0)&nbsp;==&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"In&nbsp;Pipe&nbsp;redirect&nbsp;failed"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Assign&nbsp;the&nbsp;standard&nbsp;output&nbsp;to&nbsp;the&nbsp;inPipe</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;((dup2(inPipe[1],&nbsp;1))&nbsp;==&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Out&nbsp;Pipe&nbsp;redirect&nbsp;failed"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;adding&nbsp;commandline&nbsp;arguments</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">string</span>&nbsp;s&nbsp;=&nbsp;cmdLine;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">for</span>&nbsp;(<span style="color:#2c62ba">int</span>&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;argc;&nbsp;i++)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s&nbsp;+=&nbsp;<span style="color:#466ba6">"&nbsp;"</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s&nbsp;+=&nbsp;args[i];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;s&nbsp;&lt;&lt;&nbsp;endl;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;sz[256];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(sz,&nbsp;s.c_str());<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*argv[5];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;argv[0]&nbsp;=&nbsp;<span style="color:#466ba6">"sh"</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;argv[1]&nbsp;=&nbsp;<span style="color:#466ba6">"-c"</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;argv[2]&nbsp;=&nbsp;sz;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;argv[3]&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;&nbsp;&nbsp;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Replace&nbsp;the&nbsp;current&nbsp;process&nbsp;by&nbsp;executing&nbsp;cmdLine</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;execve(<span style="color:#466ba6">"/bin/sh"</span>,&nbsp;argv,&nbsp;environ);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;execve()&nbsp;does&nbsp;not&nbsp;return&nbsp;-&nbsp;if&nbsp;it&nbsp;does&nbsp;its&nbsp;an&nbsp;error</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(127);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;killPid()&nbsp;will&nbsp;be&nbsp;called&nbsp;with&nbsp;an&nbsp;alarm&nbsp;signal&nbsp;is&nbsp;received</span><br/>
+&nbsp;&nbsp;&nbsp;signal(SIGALRM,&nbsp;Process::killPid);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Set&nbsp;the&nbsp;alarm</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(alarmVal&nbsp;!=&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;alarm(alarmVal);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Setup&nbsp;killPid()&nbsp;to&nbsp;be&nbsp;called&nbsp;upon&nbsp;keyboard&nbsp;interrupts&nbsp;to</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;prevent&nbsp;orphan&nbsp;processes.</span><br/>
+&nbsp;&nbsp;&nbsp;signal(SIGINT,&nbsp;Process::killPid);<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;Process::killPid(<span style="color:#2c62ba">int</span>&nbsp;signalNum)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Kills&nbsp;the&nbsp;current&nbsp;process&nbsp;according&nbsp;to&nbsp;which&nbsp;signal&nbsp;is&nbsp;being&nbsp;received<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;signalNum&nbsp;-&nbsp;The&nbsp;signal&nbsp;being&nbsp;received<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;index&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;retVal&nbsp;=&nbsp;0;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(signalNum&nbsp;!=&nbsp;SIGALRM&nbsp;&amp;&amp;&nbsp;signalNum&nbsp;!=&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"killPid(int)&nbsp;received&nbsp;an&nbsp;unrecognized,&nbsp;non-alarm&nbsp;signal"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myPenalty-&gt;comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;terminated&nbsp;by&nbsp;unrecognized&nbsp;signal!"</span>);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Kill&nbsp;the&nbsp;current&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;retVal&nbsp;=&nbsp;kill(currentPid,&nbsp;SIGKILL);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(retVal&nbsp;==&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Error&nbsp;killing&nbsp;child&nbsp;process"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;signal&nbsp;is&nbsp;a&nbsp;keyboard&nbsp;interrupt</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(signalNum&nbsp;==&nbsp;SIGINT)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;terminated&nbsp;by&nbsp;keyboard&nbsp;interrupt"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(0);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;killedPid&nbsp;=&nbsp;currentPid;<br/>
+&nbsp;&nbsp;&nbsp;lastSignal&nbsp;=&nbsp;signalNum;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;signal&nbsp;is&nbsp;the&nbsp;alarm</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(signalNum&nbsp;==&nbsp;SIGALRM)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myPenalty-&gt;penalty&nbsp;=&nbsp;timePenalty;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myPenalty-&gt;comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;exceeded&nbsp;maximum&nbsp;time&nbsp;limit"</span>);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;killPid()&nbsp;was&nbsp;explicitly&nbsp;called&nbsp;to&nbsp;terminate&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myPenalty-&gt;penalty&nbsp;=&nbsp;killPenalty;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;killPenalty&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myPenalty-&gt;comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;was&nbsp;forcefully&nbsp;terminated"</span>);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">int</span>&nbsp;Process::sendString(<span style="color:#2c62ba">char</span>&nbsp;*sendStr)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Send&nbsp;a&nbsp;string&nbsp;of&nbsp;input&nbsp;to&nbsp;the&nbsp;student&nbsp;program<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;*sendStr&nbsp;-&nbsp;The&nbsp;string&nbsp;to&nbsp;be&nbsp;sent<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;return&nbsp;value&nbsp;of&nbsp;fputs()&nbsp;which&nbsp;can&nbsp;be&nbsp;used&nbsp;to&nbsp;determine&nbsp;if&nbsp;the&nbsp;send&nbsp;was<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;successful.<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;retVal;<br/>
+&nbsp;&nbsp;&nbsp;retVal&nbsp;=&nbsp;fputs(sendStr,&nbsp;outStream);<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;retVal;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">char</span>&nbsp;*Process::getString(<span style="color:#2c62ba">char</span>&nbsp;*theString,&nbsp;<span style="color:#2c62ba">int</span>&nbsp;stringSize)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Gets&nbsp;a&nbsp;string&nbsp;of&nbsp;output&nbsp;from&nbsp;the&nbsp;student&nbsp;program<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;*theString&nbsp;-&nbsp;The&nbsp;buffer&nbsp;to&nbsp;be&nbsp;used<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;stringSize&nbsp;-&nbsp;The&nbsp;size&nbsp;of&nbsp;buffer<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;buffer&nbsp;used<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;fgets(theString,&nbsp;stringSize,&nbsp;inStream);;<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">bool</span>&nbsp;Process::testExit(<span style="color:#2c62ba">bool</span>&nbsp;exitIsEarly,&nbsp;<span style="color:#2c62ba">int</span>&nbsp;&amp;penalty,&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*comment,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;testNum)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Tests&nbsp;the&nbsp;current&nbsp;student&nbsp;program's&nbsp;process&nbsp;to&nbsp;determine&nbsp;if&nbsp;it&nbsp;has&nbsp;exited.<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;If&nbsp;instructed&nbsp;to,&nbsp;a&nbsp;penalty&nbsp;will&nbsp;be&nbsp;assigned&nbsp;for&nbsp;early&nbsp;exit.<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;exitIsEarly&nbsp;-&nbsp;True&nbsp;if&nbsp;a&nbsp;penalty&nbsp;is&nbsp;to&nbsp;be&nbsp;assigned<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;penalty&nbsp;-&nbsp;Pointer&nbsp;to&nbsp;where&nbsp;to&nbsp;assign&nbsp;penalty&nbsp;points<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;*comment&nbsp;-&nbsp;Pointer&nbsp;to&nbsp;where&nbsp;to&nbsp;assign&nbsp;penalty&nbsp;comment<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;testNum&nbsp;-&nbsp;The&nbsp;number&nbsp;of&nbsp;the&nbsp;current&nbsp;test&nbsp;to&nbsp;be&nbsp;used&nbsp;in&nbsp;comment<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;True&nbsp;if&nbsp;student&nbsp;program&nbsp;has&nbsp;exited<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;-&nbsp;False&nbsp;otherwise<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;status;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;convert[4];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;retVal;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Test&nbsp;the&nbsp;current&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;waitpid(currentPid,&nbsp;&amp;status,&nbsp;WNOHANG);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;exited&nbsp;normally&nbsp;or&nbsp;terminated&nbsp;due&nbsp;to&nbsp;a&nbsp;signal</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(such&nbsp;as&nbsp;a&nbsp;core&nbsp;dump).&nbsp;&nbsp;Any&nbsp;signal&nbsp;greater&nbsp;than&nbsp;SIGTERM&nbsp;is&nbsp;ignored</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;because&nbsp;if&nbsp;the&nbsp;program&nbsp;hasn't&nbsp;exited&nbsp;yet,&nbsp;WTERMSIG()&nbsp;returns&nbsp;a</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;value&nbsp;greater&nbsp;than&nbsp;SIGTERM.&nbsp;&nbsp;This&nbsp;was&nbsp;determined&nbsp;by&nbsp;observation</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(i.e.&nbsp;It&nbsp;might&nbsp;be&nbsp;incorrect.)</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(WIFEXITED(status)&nbsp;||&nbsp;(WIFSIGNALED(status)&nbsp;&amp;&amp;&nbsp;WTERMSIG(status)&nbsp;&lt;&nbsp;SIGTERM))<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;program&nbsp;terminated&nbsp;due&nbsp;to&nbsp;an&nbsp;alarm&nbsp;(a&nbsp;timeout)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(lastSignal&nbsp;==&nbsp;SIGALRM)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;exit&nbsp;was&nbsp;early,&nbsp;and&nbsp;a&nbsp;penalty&nbsp;is&nbsp;to&nbsp;be&nbsp;assigned</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(exitIsEarly)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalty&nbsp;=&nbsp;killPenalty;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;killPenalty&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;exited&nbsp;early"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(comment,&nbsp;<span style="color:#466ba6">"&nbsp;while&nbsp;attempting&nbsp;test&nbsp;#"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(convert,&nbsp;<span style="color:#466ba6">"%i"</span>,&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(comment,&nbsp;convert);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;program&nbsp;was&nbsp;killed&nbsp;due&nbsp;to&nbsp;signal</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(WIFSIGNALED(status))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;signal&nbsp;=&nbsp;WTERMSIG(status);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;a&nbsp;penalty&nbsp;was&nbsp;not&nbsp;already&nbsp;assigned&nbsp;by&nbsp;an&nbsp;early&nbsp;exit</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(penalty&nbsp;==&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalty&nbsp;=&nbsp;killPenalty;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;killPenalty&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">switch</span>&nbsp;(signal)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">case</span>&nbsp;4:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;stopped&nbsp;by&nbsp;illegal&nbsp;instruction"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">break</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">case</span>&nbsp;8:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;stopped&nbsp;by&nbsp;floating&nbsp;point&nbsp;exception"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">break</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">case</span>&nbsp;11:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;stopped&nbsp;by&nbsp;segmentation&nbsp;fault"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">break</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">default</span>:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(convert,&nbsp;<span style="color:#466ba6">"%i"</span>,&nbsp;signal);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(comment,&nbsp;<span style="color:#466ba6">"Program&nbsp;stopped&nbsp;by&nbsp;unknown&nbsp;signal:&nbsp;"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(comment,&nbsp;convert);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">break</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(comment,&nbsp;<span style="color:#466ba6">"&nbsp;on&nbsp;test&nbsp;#"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(convert,&nbsp;<span style="color:#466ba6">"%i"</span>,&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(comment,&nbsp;convert);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;program&nbsp;has&nbsp;not&nbsp;exited&nbsp;yet</span><br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalty&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;comment[0]&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+}<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;getCommandLine(<span style="color:#2c62ba">int</span>&nbsp;argc,&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*argv[],&nbsp;Assignment&nbsp;&amp;myAssg)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Process&nbsp;the&nbsp;user-provided&nbsp;command&nbsp;line<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;argc&nbsp;-&nbsp;The&nbsp;lengthof&nbsp;argv[]<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;*argv[]&nbsp;-&nbsp;An&nbsp;array&nbsp;of&nbsp;command&nbsp;line&nbsp;arguments<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;myAssg&nbsp;-&nbsp;The&nbsp;current&nbsp;Assignment&nbsp;object&nbsp;to&nbsp;work&nbsp;with<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;argCount&nbsp;=&nbsp;2;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Any&nbsp;help&nbsp;instructions&nbsp;should&nbsp;be&nbsp;placed&nbsp;here</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(argc&nbsp;&gt;=&nbsp;2&nbsp;&amp;&amp;&nbsp;!&nbsp;strcmp(argv[1],&nbsp;<span style="color:#466ba6">"-help"</span>))<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"These&nbsp;are&nbsp;HELP&nbsp;instructions"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;This&nbsp;enables&nbsp;grading&nbsp;mode.&nbsp;&nbsp;Grading&nbsp;mode&nbsp;creates&nbsp;extra&nbsp;files&nbsp;to&nbsp;be</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;used&nbsp;for&nbsp;grading&nbsp;purposes.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(argc&nbsp;&gt;=&nbsp;2&nbsp;&amp;&amp;&nbsp;!&nbsp;strcmp(argv[1],&nbsp;<span style="color:#466ba6">"-grade"</span>))<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.gradeMode&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;argCount++;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.gradeMode&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;there&nbsp;are&nbsp;more&nbsp;command&nbsp;line&nbsp;arguments&nbsp;to&nbsp;be&nbsp;processed</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(argc&nbsp;&gt;=&nbsp;argCount)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*tempLoc;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;This&nbsp;reads&nbsp;in&nbsp;the&nbsp;assignment&nbsp;directory</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myAssg.assgDir,&nbsp;ASSGHOME);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.assgDir,&nbsp;argv[argCount&nbsp;-&nbsp;1]);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.assgDir,&nbsp;<span style="color:#466ba6">"/"</span>);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;This&nbsp;sets&nbsp;the&nbsp;path&nbsp;and&nbsp;filename&nbsp;of&nbsp;the&nbsp;assignment&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempLoc&nbsp;=&nbsp;strstr(argv[argCount&nbsp;-&nbsp;1],&nbsp;<span style="color:#466ba6">"/"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(tempLoc)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myAssg.assgFile,&nbsp;myAssg.assgDir);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.assgFile,&nbsp;tempLoc&nbsp;+&nbsp;1);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.assgFile,&nbsp;<span style="color:#466ba6">".assg"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;Invalid&nbsp;assignment&nbsp;name"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;there&nbsp;were&nbsp;no&nbsp;more&nbsp;items&nbsp;to&nbsp;be&nbsp;read&nbsp;from&nbsp;command&nbsp;line</span><br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;Invalid&nbsp;command&nbsp;line&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;argCount++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;a&nbsp;custom&nbsp;test&nbsp;file&nbsp;was&nbsp;specified&nbsp;on&nbsp;the&nbsp;command&nbsp;line</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(argc&nbsp;&gt;=&nbsp;argCount&nbsp;&amp;&amp;&nbsp;argv[argCount&nbsp;-&nbsp;1][0]&nbsp;==&nbsp;<span style="color:#466ba6">'-'</span>)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myAssg.testFile,&nbsp;(argv[argCount&nbsp;-&nbsp;1]&nbsp;+&nbsp;1));<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Append&nbsp;a&nbsp;suffix&nbsp;to&nbsp;the&nbsp;test&nbsp;file&nbsp;name&nbsp;if&nbsp;necessary</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strstr(myAssg.testFile,&nbsp;<span style="color:#466ba6">".test"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.testFile,&nbsp;<span style="color:#466ba6">".test"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;argCount++;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.testFile[0]&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Determine&nbsp;the&nbsp;number&nbsp;of&nbsp;source&nbsp;files&nbsp;specified&nbsp;on&nbsp;the&nbsp;command&nbsp;line</span><br/>
+&nbsp;&nbsp;&nbsp;myAssg.sourceCount&nbsp;=&nbsp;argc&nbsp;-&nbsp;argCount&nbsp;+&nbsp;1;<br/>
+&nbsp;&nbsp;&nbsp;myAssg.sourceFiles&nbsp;=&nbsp;new&nbsp;char*[myAssg.sourceCount];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;there&nbsp;are&nbsp;source&nbsp;files&nbsp;specified&nbsp;to&nbsp;be&nbsp;processed</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(argc&nbsp;&gt;=&nbsp;argCount)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;each&nbsp;source&nbsp;file&nbsp;name&nbsp;on&nbsp;command&nbsp;line</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">for</span>&nbsp;(<span style="color:#2c62ba">int</span>&nbsp;counter&nbsp;=&nbsp;0;&nbsp;counter&nbsp;+&nbsp;argCount&nbsp;&lt;=&nbsp;argc;&nbsp;counter++)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.sourceFiles[counter]&nbsp;=&nbsp;new&nbsp;char[<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strlen(argv[counter&nbsp;+&nbsp;argCount&nbsp;-&nbsp;1])&nbsp;+&nbsp;1&nbsp;];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Copy&nbsp;each&nbsp;source&nbsp;file&nbsp;name&nbsp;to&nbsp;the&nbsp;myAssg&nbsp;struct</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myAssg.sourceFiles[counter],&nbsp;argv[counter&nbsp;+&nbsp;argCount&nbsp;-&nbsp;1]);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;there&nbsp;are&nbsp;no&nbsp;source&nbsp;files&nbsp;specified</span><br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;Invalid&nbsp;source&nbsp;file&nbsp;list"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Initialize&nbsp;the&nbsp;index&nbsp;to&nbsp;the&nbsp;source&nbsp;files&nbsp;array&nbsp;for&nbsp;the&nbsp;rest&nbsp;of&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;program&nbsp;to&nbsp;use.</span><br/>
+&nbsp;&nbsp;&nbsp;myAssg.sourceIndex&nbsp;=&nbsp;0;<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;getAssgFile(Assignment&nbsp;&amp;myAssg)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Reads&nbsp;in&nbsp;the&nbsp;assignment&nbsp;file&nbsp;and&nbsp;stores&nbsp;its&nbsp;information&nbsp;in&nbsp;the&nbsp;myAssg&nbsp;struct<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;myAssg&nbsp;-&nbsp;The&nbsp;struct&nbsp;to&nbsp;store&nbsp;info&nbsp;in<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">ifstream</span>&nbsp;assgFile;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;inLine[256];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;lineCount&nbsp;=&nbsp;1;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Open&nbsp;the&nbsp;assignment&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;assgFile.open(myAssg.assgFile);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(assgFile.bad())<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;Assignment&nbsp;definition&nbsp;file&nbsp;could&nbsp;not&nbsp;be&nbsp;opened"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"\tMake&nbsp;sure&nbsp;you&nbsp;specified&nbsp;the&nbsp;course&nbsp;name&nbsp;and&nbsp;"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"assignment&nbsp;correctly"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;each&nbsp;line&nbsp;of&nbsp;the&nbsp;assignment&nbsp;file</span><br/>
+<br/>
+<span style="color:#929ca0">//TEMPTREV</span><br/>
+<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;while&nbsp;(!&nbsp;assgFile.eof())</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(assgFile.peek()&nbsp;!=&nbsp;EOF)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*tempPtr;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*tempPtr2;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;assgFile.getline(inLine,&nbsp;<span style="color:#2c62ba">sizeof</span>(inLine));<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempPtr2&nbsp;=&nbsp;inLine;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Look&nbsp;for&nbsp;the&nbsp;'='&nbsp;char&nbsp;as&nbsp;the&nbsp;variable/data&nbsp;delimeter</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempPtr&nbsp;=&nbsp;strsep(&amp;tempPtr2,&nbsp;<span style="color:#466ba6">"="</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;no&nbsp;'='&nbsp;char&nbsp;was&nbsp;found</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;tempPtr)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;In&nbsp;assg&nbsp;file&nbsp;-&nbsp;tag&nbsp;expected&nbsp;on&nbsp;line&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;lineCount&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Look&nbsp;for&nbsp;the&nbsp;';'&nbsp;char&nbsp;which&nbsp;marks&nbsp;then&nbsp;end&nbsp;of&nbsp;each&nbsp;line</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tempPtr&nbsp;=&nbsp;strsep(&amp;tempPtr2,&nbsp;<span style="color:#466ba6">";"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;no&nbsp;';'&nbsp;char&nbsp;was&nbsp;found</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;tempPtr)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;In&nbsp;assg&nbsp;file&nbsp;-&nbsp;Semicolon&nbsp;missing&nbsp;on&nbsp;line&nbsp;"</span>&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;lineCount&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;program&nbsp;to&nbsp;be&nbsp;called&nbsp;that&nbsp;will&nbsp;check&nbsp;the&nbsp;style&nbsp;of&nbsp;source</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;code&nbsp;files.&nbsp;&nbsp;*&nbsp;This&nbsp;functionality&nbsp;is&nbsp;currently&nbsp;not&nbsp;implemented&nbsp;*</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"StyleCheckProgram"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myAssg.styleProgram,&nbsp;myAssg.assgDir);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.styleProgram,&nbsp;tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;program&nbsp;to&nbsp;be&nbsp;executed&nbsp;that&nbsp;compiles&nbsp;each&nbsp;source&nbsp;code&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;in&nbsp;preparation&nbsp;for&nbsp;testing.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"CompileProgram"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(tempPtr[0])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//This&nbsp;line&nbsp;commented&nbsp;out&nbsp;to&nbsp;improve&nbsp;path&nbsp;problems.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//strcpy(myAssg.compileProgram,&nbsp;myAssg.assgDir);</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.compileProgram,&nbsp;tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;test&nbsp;instructions&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"TestInstructions"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;no&nbsp;test&nbsp;instructions&nbsp;file&nbsp;is&nbsp;specified&nbsp;then&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;student&nbsp;is&nbsp;expected&nbsp;to&nbsp;proved&nbsp;his/her&nbsp;own.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;myAssg.testFile[0]&nbsp;&amp;&amp;&nbsp;tempPtr[0])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(myAssg.testFile,&nbsp;myAssg.assgDir);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(myAssg.testFile,&nbsp;tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;to&nbsp;be&nbsp;assigned&nbsp;when&nbsp;a&nbsp;source&nbsp;code&nbsp;file&nbsp;compiles&nbsp;with</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;warnings.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"CompilerWarningPenalty"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.compileWarnPenalty&nbsp;=&nbsp;atoi(tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;to&nbsp;be&nbsp;assigned&nbsp;when&nbsp;a&nbsp;source&nbsp;code&nbsp;fails&nbsp;to&nbsp;compile</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"CompilerFailPenalty"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.compileFailPenalty&nbsp;=&nbsp;atoi(tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;overall&nbsp;time&nbsp;limit&nbsp;given&nbsp;for&nbsp;each&nbsp;test&nbsp;to&nbsp;complete</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"OverallTimeLimit"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.programTimeLimit&nbsp;=&nbsp;atoi(tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;penalty&nbsp;assigned&nbsp;if&nbsp;a&nbsp;test&nbsp;exceeds&nbsp;the&nbsp;overall&nbsp;time&nbsp;limit</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"OverallTimePenalty"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.programTimePenalty&nbsp;=&nbsp;atoi(tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;default&nbsp;amount&nbsp;of&nbsp;time&nbsp;to&nbsp;wait&nbsp;for&nbsp;each&nbsp;line&nbsp;of&nbsp;output&nbsp;from</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;program&nbsp;being&nbsp;tested.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"DefaultLineOutputTimeLimit"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.defaultTimeLimit&nbsp;=&nbsp;atoi(tempPtr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Specifies&nbsp;whether&nbsp;a&nbsp;program&nbsp;should&nbsp;be&nbsp;restarted&nbsp;and&nbsp;the&nbsp;current</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;test&nbsp;resumed&nbsp;upon&nbsp;a&nbsp;program&nbsp;crash.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;strcmp(inLine,&nbsp;<span style="color:#466ba6">"ResumeFromCrash"</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(tempPtr[0]&nbsp;==&nbsp;<span style="color:#466ba6">'T'</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.resumeFromCrash&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.resumeFromCrash&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;Unknown&nbsp;tag&nbsp;in&nbsp;assignment&nbsp;file&nbsp;on&nbsp;line&nbsp;"</span>&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;lineCount&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lineCount++;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;assgFile.close();<br/>
+<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;getInstructions(Assignment&nbsp;&amp;myAssg,&nbsp;Instruction&nbsp;**instructs)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Reads&nbsp;in&nbsp;the&nbsp;instructions&nbsp;from&nbsp;the&nbsp;test&nbsp;instruction&nbsp;file&nbsp;into&nbsp;**intructs<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;myAssg&nbsp;-&nbsp;The&nbsp;current&nbsp;assignment&nbsp;file.<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;**instructs&nbsp;-&nbsp;The&nbsp;array&nbsp;of&nbsp;pointers&nbsp;to&nbsp;instruction&nbsp;structs<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">ifstream</span>&nbsp;testFile;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">ofstream</span>&nbsp;inputFile;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;inLine[256];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;lineCount&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;instructIndex&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Reset&nbsp;the&nbsp;pointers&nbsp;in&nbsp;the&nbsp;array</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">for</span>&nbsp;(<span style="color:#2c62ba">int</span>&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;MAXINSTRUCTS;&nbsp;i++)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[i]&nbsp;=&nbsp;NULL;<br/>
+&nbsp;&nbsp;&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;testFile.open(myAssg.testFile);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;This&nbsp;"if&nbsp;statement"&nbsp;added&nbsp;by&nbsp;Conrad&nbsp;Kennington:&nbsp;Feb&nbsp;1,&nbsp;2005.&nbsp;</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;The&nbsp;testFile.bad()&nbsp;below&nbsp;checks&nbsp;stream&nbsp;corruption,</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;it&nbsp;was&nbsp;hanging&nbsp;if&nbsp;the&nbsp;testfile&nbsp;didn't&nbsp;exist.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>(!testFile)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Error:&nbsp;Test&nbsp;instructions&nbsp;file&nbsp;could&nbsp;not&nbsp;be&nbsp;found/opened."</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(testFile.bad()&nbsp;||&nbsp;!strlen(myAssg.testFile))<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;Test&nbsp;instructions&nbsp;file&nbsp;could&nbsp;not&nbsp;be&nbsp;opened"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"\tPlease&nbsp;specify&nbsp;one&nbsp;(e.g.,&nbsp;\""</span>&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;cs235/hw01&nbsp;-myTest.test&nbsp;myCode.cpp\"&nbsp;or&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"\t\""</span>&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;cs165/hw16&nbsp;myCode.cpp\")"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;each&nbsp;line&nbsp;of&nbsp;the&nbsp;instruction&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(!&nbsp;testFile.eof())<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*ptr;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;testFile.getline(inLine,&nbsp;<span style="color:#2c62ba">sizeof</span>(inLine));<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;'+'&nbsp;char&nbsp;means&nbsp;start&nbsp;the&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;anything&nbsp;following&nbsp;the&nbsp;'+'&nbsp;is&nbsp;used&nbsp;as&nbsp;arguments&nbsp;to&nbsp;the&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(inLine[0]&nbsp;==&nbsp;<span style="color:#466ba6">'+'</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;start&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(*(ptr&nbsp;=&nbsp;inLine&nbsp;+&nbsp;1))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;send&nbsp;=&nbsp;strcpy(new&nbsp;char[strlen(ptr)&nbsp;+&nbsp;2],<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ptr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(instructs[instructIndex]-&gt;send,&nbsp;<span style="color:#466ba6">"\n"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructIndex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;'$'&nbsp;char&nbsp;deliniates&nbsp;a&nbsp;new&nbsp;test.&nbsp;&nbsp;Digits&nbsp;following&nbsp;'$'&nbsp;on&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;same&nbsp;line&nbsp;are&nbsp;the&nbsp;number&nbsp;of&nbsp;points&nbsp;assigned&nbsp;to&nbsp;that&nbsp;test.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(inLine[0]&nbsp;==&nbsp;<span style="color:#466ba6">'$'</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(*(ptr&nbsp;=&nbsp;inLine&nbsp;+&nbsp;1))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(atoi(ptr)&nbsp;==&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;points&nbsp;=&nbsp;-1;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;points&nbsp;=&nbsp;atoi(ptr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;points&nbsp;=&nbsp;0;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructIndex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;'~'&nbsp;char&nbsp;followed&nbsp;by&nbsp;digits&nbsp;means&nbsp;to&nbsp;wait&nbsp;for&nbsp;that&nbsp;number&nbsp;of</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;milliseconds.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(inLine[0]&nbsp;==&nbsp;<span style="color:#466ba6">'~'</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(*(ptr&nbsp;=&nbsp;inLine&nbsp;+&nbsp;1))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;wait&nbsp;=&nbsp;atoi(ptr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructIndex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;'='&nbsp;char&nbsp;followed&nbsp;by&nbsp;text&nbsp;means&nbsp;that&nbsp;the&nbsp;text&nbsp;is&nbsp;the&nbsp;expected</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;output.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(inLine[0]&nbsp;==&nbsp;<span style="color:#466ba6">'='</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(*(ptr&nbsp;=&nbsp;inLine&nbsp;+&nbsp;1))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;recv&nbsp;=&nbsp;strcpy(new&nbsp;char[strlen(ptr)&nbsp;+&nbsp;1],<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ptr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructIndex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;'&lt;'&nbsp;char&nbsp;followed&nbsp;by&nbsp;text&nbsp;means&nbsp;that&nbsp;the&nbsp;text&nbsp;is&nbsp;given&nbsp;to&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;program&nbsp;as&nbsp;input.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(inLine[0]&nbsp;==&nbsp;<span style="color:#466ba6">'&lt;'</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(*(ptr&nbsp;=&nbsp;inLine&nbsp;+&nbsp;1))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;send&nbsp;=&nbsp;strcpy(new&nbsp;char[strlen(ptr)&nbsp;+&nbsp;2],<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ptr);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(instructs[instructIndex]-&gt;send,&nbsp;<span style="color:#466ba6">"\n"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructIndex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;A&nbsp;'-'&nbsp;char&nbsp;means&nbsp;that&nbsp;the&nbsp;program&nbsp;is&nbsp;expected&nbsp;to&nbsp;terminate</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(inLine[0]&nbsp;==&nbsp;<span style="color:#466ba6">'-'</span>)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[instructIndex]-&gt;stop&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructIndex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;testFile.close();<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;getResults(Assignment&nbsp;&amp;myAssg,&nbsp;Instruction&nbsp;**instructs,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Instruction&nbsp;**results,&nbsp;Penalty&nbsp;penalties[])<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Compiles&nbsp;and&nbsp;tests&nbsp;the&nbsp;student&nbsp;program.&nbsp;&nbsp;The&nbsp;results&nbsp;are&nbsp;stored&nbsp;for&nbsp;later<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;processing.<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;myAssg&nbsp;-&nbsp;The&nbsp;current&nbsp;Assignment&nbsp;object&nbsp;to&nbsp;work&nbsp;with<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*<br/>
+*&nbsp;Note:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;This&nbsp;function&nbsp;compiles&nbsp;the&nbsp;source&nbsp;code&nbsp;and&nbsp;then&nbsp;tests&nbsp;the&nbsp;resultant&nbsp;program.<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;code&nbsp;for&nbsp;compiling&nbsp;source&nbsp;code&nbsp;could&nbsp;easily&nbsp;be&nbsp;moved&nbsp;into&nbsp;its&nbsp;own<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;function&nbsp;to&nbsp;reduce&nbsp;the&nbsp;number&nbsp;of&nbsp;tasks&nbsp;this&nbsp;function&nbsp;performs.<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;index&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;rindex&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;retVal&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;pid&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;pointVal&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;testNum&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;penaltyNum&nbsp;=&nbsp;1;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;argc&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;char*&nbsp;args[MAXARGS];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;command[100];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;secondChance&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;fd_set&nbsp;mySet;<br/>
+&nbsp;&nbsp;&nbsp;timeval&nbsp;tv;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Test&nbsp;the&nbsp;first&nbsp;instruction&nbsp;for&nbsp;a&nbsp;'+'&nbsp;char</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;instructs[index]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cerr&nbsp;&lt;&lt;&nbsp;MYNAME&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">":&nbsp;First&nbsp;test&nbsp;instruction&nbsp;is&nbsp;not&nbsp;'+'"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;exit(1);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Compiles&nbsp;the&nbsp;student&nbsp;source&nbsp;code&nbsp;if&nbsp;necessary</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(myAssg.compileProgram[0])<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Create&nbsp;the&nbsp;command&nbsp;line&nbsp;that&nbsp;will&nbsp;be&nbsp;executed&nbsp;to&nbsp;compile&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;source&nbsp;code.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(command,&nbsp;myAssg.compileProgram);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(command,&nbsp;<span style="color:#466ba6">"&nbsp;"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(command,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;These&nbsp;lines&nbsp;of&nbsp;code&nbsp;could&nbsp;be&nbsp;used&nbsp;when&nbsp;the&nbsp;time&nbsp;comes&nbsp;to&nbsp;enable</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;style&nbsp;checking.</span><br/>
+<br/>
+<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(command,&nbsp;"&nbsp;&gt;&nbsp;");</span><br/>
+<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(command,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);</span><br/>
+<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(command,&nbsp;".grade");</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Execute&nbsp;the&nbsp;compile&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retVal&nbsp;=&nbsp;system(command);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;compile&nbsp;program&nbsp;exit&nbsp;status&nbsp;was&nbsp;one,&nbsp;the&nbsp;source&nbsp;code</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;compiled&nbsp;with&nbsp;warnings.&nbsp;&nbsp;If&nbsp;it&nbsp;was&nbsp;two,&nbsp;the&nbsp;source&nbsp;code&nbsp;could&nbsp;not</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;compile.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">switch</span>&nbsp;(retVal&nbsp;&gt;&gt;&nbsp;8)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">case</span>&nbsp;1:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].penalty&nbsp;=&nbsp;myAssg.compileWarnPenalty;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(penalties[penaltyNum++].comment,&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#466ba6">"Source&nbsp;compiled&nbsp;with&nbsp;warnings"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">break</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">case</span>&nbsp;2:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].penalty&nbsp;=&nbsp;myAssg.compileFailPenalty;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(penalties[penaltyNum++].comment,&nbsp;<span style="color:#466ba6">"Source&nbsp;could&nbsp;not&nbsp;compile"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Setup&nbsp;the&nbsp;next&nbsp;command&nbsp;to&nbsp;execute&nbsp;the&nbsp;compiled&nbsp;program</span><br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Java&nbsp;files&nbsp;are&nbsp;interpereted&nbsp;and&nbsp;not&nbsp;compiled&nbsp;into&nbsp;a&nbsp;stand-alone</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//executable,&nbsp;therefore,&nbsp;the&nbsp;command&nbsp;line&nbsp;must&nbsp;be&nbsp;built&nbsp;differently</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(strstr&nbsp;(myAssg.sourceFiles[myAssg.sourceIndex],&nbsp;<span style="color:#466ba6">".java"</span>)&nbsp;!=&nbsp;NULL)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy&nbsp;(command,&nbsp;<span style="color:#466ba6">"java&nbsp;"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strncat&nbsp;(command,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex],&nbsp;strlen&nbsp;(myAssg.sourceFiles[myAssg.sourceIndex])&nbsp;-&nbsp;5);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(command,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(command,&nbsp;EXESUFFIX);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;no&nbsp;compile&nbsp;was&nbsp;necessary</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Setup&nbsp;the&nbsp;next&nbsp;command&nbsp;to&nbsp;execute&nbsp;the&nbsp;source&nbsp;code&nbsp;file</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(command,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//parse&nbsp;and&nbsp;setup&nbsp;arguments&nbsp;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>(MAXARGS)&nbsp;<span style="color:#929ca0">//&nbsp;make&nbsp;sure&nbsp;MAXARGS&nbsp;is&nbsp;not&nbsp;0</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;char*&nbsp;ptr&nbsp;=&nbsp;strtok(instructs[index]-&gt;send,&nbsp;<span style="color:#466ba6">"&nbsp;"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//split&nbsp;on&nbsp;spaces&nbsp;and&nbsp;put&nbsp;chunks&nbsp;into&nbsp;args&nbsp;array</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(ptr&nbsp;!=&nbsp;NULL&nbsp;&amp;&amp;&nbsp;argc&nbsp;&lt;&nbsp;MAXARGS)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;args[argc]&nbsp;=&nbsp;ptr;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;argc++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ptr&nbsp;=&nbsp;strtok(NULL,&nbsp;<span style="color:#466ba6">"&nbsp;"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Initilaize&nbsp;the&nbsp;first&nbsp;object&nbsp;in&nbsp;the&nbsp;results&nbsp;array</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;results[rindex])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results[rindex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Start&nbsp;the&nbsp;student&nbsp;program&nbsp;and&nbsp;set&nbsp;the&nbsp;time&nbsp;limit&nbsp;for&nbsp;completion</span><br/>
+&nbsp;&nbsp;&nbsp;Process::startProc(command,&nbsp;myAssg.programTimeLimit,&nbsp;args,&nbsp;argc);<br/>
+&nbsp;&nbsp;&nbsp;*results[rindex++]&nbsp;=&nbsp;*instructs[index++];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;each&nbsp;test&nbsp;instruction</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(instructs[index]&nbsp;!=&nbsp;NULL)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Sleep&nbsp;for&nbsp;the&nbsp;specified&nbsp;number&nbsp;of&nbsp;milliseconds&nbsp;before&nbsp;each&nbsp;test</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instruction.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tv.tv_sec&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tv.tv_usec&nbsp;=&nbsp;DEFAULTSLEEP&nbsp;*&nbsp;1000;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retVal&nbsp;=&nbsp;select(0,&nbsp;NULL,&nbsp;NULL,&nbsp;NULL,&nbsp;&amp;tv);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;results[rindex])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results[rindex]&nbsp;=&nbsp;new&nbsp;Instruction;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;is&nbsp;to&nbsp;start&nbsp;again&nbsp;-&nbsp;do&nbsp;so&nbsp;without&nbsp;resetting&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current&nbsp;time&nbsp;limit.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::startProc(command,&nbsp;-1,&nbsp;args,&nbsp;argc);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*results[rindex++]&nbsp;=&nbsp;*instructs[index++];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;a&nbsp;new&nbsp;point&nbsp;value&nbsp;is&nbsp;to&nbsp;be&nbsp;assigned&nbsp;to&nbsp;future&nbsp;instructions</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;points&nbsp;!=&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pointVal&nbsp;=&nbsp;instructs[index]-&gt;points;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::setProcessVal(pointVal);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*results[rindex++]&nbsp;=&nbsp;*instructs[index++];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;testing&nbsp;should&nbsp;pause&nbsp;to&nbsp;allow&nbsp;the&nbsp;student&nbsp;program&nbsp;to&nbsp;work</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;wait&nbsp;&gt;&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tv.tv_sec&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tv.tv_usec&nbsp;=&nbsp;instructs[index]-&gt;wait&nbsp;*&nbsp;1000;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retVal&nbsp;=&nbsp;select(0,&nbsp;NULL,&nbsp;NULL,&nbsp;NULL,&nbsp;&amp;tv);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*results[rindex++]&nbsp;=&nbsp;*instructs[index++];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;text&nbsp;should&nbsp;be&nbsp;sent&nbsp;to&nbsp;the&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;send)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::sendString(instructs[index]-&gt;send);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*results[rindex++]&nbsp;=&nbsp;*instructs[index++];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;student&nbsp;program&nbsp;is&nbsp;expected&nbsp;to&nbsp;stop</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;stop)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;didExit;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*retChar;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;inLine[256];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Test&nbsp;to&nbsp;see&nbsp;if&nbsp;there&nbsp;is&nbsp;any&nbsp;output&nbsp;from&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;remaining.&nbsp;&nbsp;This&nbsp;would&nbsp;indicate&nbsp;whether&nbsp;the&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;terminated&nbsp;exactly&nbsp;when&nbsp;expected.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retChar&nbsp;=&nbsp;Process::getString(inLine,&nbsp;256);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;there&nbsp;was&nbsp;output&nbsp;available&nbsp;from&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(retChar)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;didExit&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;there&nbsp;was&nbsp;no&nbsp;ouput&nbsp;available</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Test&nbsp;to&nbsp;see&nbsp;if&nbsp;the&nbsp;program&nbsp;has&nbsp;really&nbsp;exited</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;didExit&nbsp;=&nbsp;Process::testExit(false,&nbsp;penalties[penaltyNum].penalty&nbsp;,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].comment,&nbsp;testNum);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(didExit)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;&nbsp;gracefully&nbsp;exited&nbsp;(i.e.&nbsp;no&nbsp;core&nbsp;dump)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(penalties[penaltyNum].penalty&nbsp;==&nbsp;0&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!&nbsp;penalties[penaltyNum].comment[0])<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*results[rindex]&nbsp;=&nbsp;*instructs[index];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;I&nbsp;can't&nbsp;remember&nbsp;why&nbsp;this&nbsp;instruction&nbsp;is&nbsp;here</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penaltyNum++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rindex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;no&nbsp;instructions&nbsp;remain&nbsp;to&nbsp;be&nbsp;processed</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;instructs[index]&nbsp;||&nbsp;!&nbsp;instructs[index]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;student&nbsp;program&nbsp;is&nbsp;still&nbsp;running</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;convert[4];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Assign&nbsp;a&nbsp;penalty&nbsp;and&nbsp;eliminate&nbsp;future&nbsp;penalties&nbsp;for&nbsp;this</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;specific&nbsp;test.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].penalty&nbsp;=&nbsp;pointVal;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pointVal&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(penalties[penaltyNum].comment,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#466ba6">"Program&nbsp;failed&nbsp;to&nbsp;exit&nbsp;when&nbsp;expected&nbsp;on&nbsp;test&nbsp;#"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(convert,&nbsp;<span style="color:#466ba6">"%i"</span>,&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(penalties[penaltyNum++].comment,&nbsp;convert);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results[rindex++]-&gt;stop&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Test&nbsp;the&nbsp;program&nbsp;one&nbsp;more&nbsp;time</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;didExit&nbsp;=&nbsp;Process::testExit(false,&nbsp;penalties[penaltyNum].penalty&nbsp;,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].comment,&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;didExit)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::killPid(-1);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;output&nbsp;is&nbsp;expected&nbsp;from&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;recv)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*retChar;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;inLine[256];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;didExit&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;inPipe&nbsp;=&nbsp;Process::getInPipeNum();<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FD_ZERO(&amp;mySet);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FD_SET(inPipe,&nbsp;&amp;mySet);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Sleep&nbsp;for&nbsp;the&nbsp;specified&nbsp;number&nbsp;of&nbsp;milliseconds</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tv.tv_sec&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tv.tv_usec&nbsp;=&nbsp;myAssg.defaultTimeLimit&nbsp;*&nbsp;1000;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;select(inPipe&nbsp;+&nbsp;1,&nbsp;&amp;mySet,&nbsp;NULL,&nbsp;NULL,&nbsp;&amp;tv);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Get&nbsp;output&nbsp;from&nbsp;student&nbsp;program</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;retChar&nbsp;=&nbsp;Process::getString(inLine,&nbsp;256);<br/>
+<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;output&nbsp;was&nbsp;available</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(retChar)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*newLine;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//This&nbsp;is&nbsp;to&nbsp;take&nbsp;care&nbsp;of&nbsp;a&nbsp;bug&nbsp;with&nbsp;Java.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Its&nbsp;ugly&nbsp;but&nbsp;this&nbsp;had&nbsp;to&nbsp;be&nbsp;done</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//when&nbsp;println&nbsp;is&nbsp;used&nbsp;in&nbsp;Java&nbsp;it&nbsp;prints&nbsp;the&nbsp;line</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//and&nbsp;then&nbsp;the&nbsp;\n.&nbsp;The&nbsp;\n&nbsp;would&nbsp;be&nbsp;taken&nbsp;on&nbsp;its&nbsp;own&nbsp;and&nbsp;below</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//it&nbsp;is&nbsp;removed.&nbsp;The&nbsp;output&nbsp;would&nbsp;then&nbsp;be&nbsp;interpereted&nbsp;as&nbsp;""</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//and&nbsp;be&nbsp;incorrect&nbsp;of&nbsp;course.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//This&nbsp;way&nbsp;the&nbsp;\n&nbsp;is&nbsp;replaced&nbsp;by&nbsp;"\n"&nbsp;and&nbsp;can&nbsp;be&nbsp;included&nbsp;in&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Instruction&nbsp;file.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;((<span style="color:#2c62ba">int</span>)inLine[0]&nbsp;==&nbsp;10)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy&nbsp;(inLine,&nbsp;<span style="color:#466ba6">"\\n"</span>);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;this&nbsp;is&nbsp;the&nbsp;instruction&nbsp;after&nbsp;points&nbsp;were&nbsp;assigned,&nbsp;and</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;we're&nbsp;not&nbsp;currently&nbsp;resuming&nbsp;from&nbsp;a&nbsp;crash&nbsp;then&nbsp;increment&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;test&nbsp;number.&nbsp;&nbsp;The&nbsp;test&nbsp;number&nbsp;is&nbsp;primarily&nbsp;used&nbsp;for&nbsp;outputting</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;the&nbsp;test&nbsp;results.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;secondChance&nbsp;&amp;&amp;&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;points&nbsp;!=&nbsp;-1)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;testNum++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Get&nbsp;rid&nbsp;of&nbsp;the&nbsp;trailing&nbsp;newline&nbsp;char&nbsp;if&nbsp;it&nbsp;exists</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newLine&nbsp;=&nbsp;strchr(inLine,&nbsp;<span style="color:#466ba6">'\n'</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(newLine)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*newLine&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Copy&nbsp;the&nbsp;output&nbsp;into&nbsp;the&nbsp;current&nbsp;result&nbsp;struct</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results[rindex]-&gt;recv&nbsp;=&nbsp;new&nbsp;char[strlen(inLine)&nbsp;+&nbsp;1];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(results[rindex]-&gt;recv,&nbsp;inLine);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;output&nbsp;does&nbsp;not&nbsp;match&nbsp;what&nbsp;was&nbsp;expected,&nbsp;assign&nbsp;a</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalty.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(strcmp(instructs[index]-&gt;recv,&nbsp;results[rindex]-&gt;recv)&nbsp;!=&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;convert[4];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].penalty&nbsp;=&nbsp;pointVal;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pointVal&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(penalties[penaltyNum].comment,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#466ba6">"Incorrect&nbsp;output&nbsp;on&nbsp;test&nbsp;#"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(convert,&nbsp;<span style="color:#466ba6">"%i"</span>,&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(penalties[penaltyNum++].comment,&nbsp;convert);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rindex++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;no&nbsp;output&nbsp;was&nbsp;available</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Test&nbsp;to&nbsp;see&nbsp;if&nbsp;the&nbsp;student&nbsp;program&nbsp;exited</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;didExit&nbsp;=&nbsp;Process::testExit(true,&nbsp;penalties[penaltyNum].penalty&nbsp;,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].comment,&nbsp;testNum);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;student&nbsp;program&nbsp;terminated&nbsp;due&nbsp;to&nbsp;exceeding&nbsp;time</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;limit.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(Process::getLastSig()&nbsp;==&nbsp;SIGALRM)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;student&nbsp;program&nbsp;has&nbsp;not&nbsp;exited,&nbsp;assign&nbsp;a&nbsp;penalty</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;didExit)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;convert[4];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penalties[penaltyNum].penalty&nbsp;=&nbsp;pointVal;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pointVal&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(penalties[penaltyNum].comment,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#466ba6">"Program&nbsp;failed&nbsp;to&nbsp;output&nbsp;when&nbsp;expected&nbsp;on&nbsp;test&nbsp;#"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(convert,&nbsp;<span style="color:#466ba6">"%i"</span>,&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(penalties[penaltyNum].comment,&nbsp;convert);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::killPid(-1);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;penaltyNum++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;this&nbsp;test&nbsp;was&nbsp;a&nbsp;resumption&nbsp;from&nbsp;a&nbsp;crash</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(secondChance)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;convert[4];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(penalties[penaltyNum].comment,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#466ba6">"Program&nbsp;failed&nbsp;twice&nbsp;on&nbsp;test&nbsp;#"</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sprintf(convert,&nbsp;<span style="color:#466ba6">"%i"</span>,&nbsp;testNum);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(penalties[penaltyNum++].comment,&nbsp;convert);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results[rindex++]-&gt;restart&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;secondChance&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Fast&nbsp;forward&nbsp;instructions&nbsp;until&nbsp;the&nbsp;next&nbsp;test&nbsp;is&nbsp;found</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(instructs[index]&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[index]-&gt;points&nbsp;==&nbsp;-1&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;failed&nbsp;test&nbsp;was&nbsp;not&nbsp;the&nbsp;last&nbsp;test&nbsp;available</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::startProc(command,&nbsp;-1,&nbsp;args,&nbsp;argc);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;student&nbsp;programs&nbsp;are&nbsp;allowed&nbsp;to&nbsp;resume&nbsp;from&nbsp;crashes</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(myAssg.resumeFromCrash)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Rewind&nbsp;the&nbsp;instructions&nbsp;until&nbsp;the&nbsp;beginning&nbsp;of&nbsp;the</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current&nbsp;test&nbsp;is&nbsp;found.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(index&nbsp;&gt;&nbsp;0&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;points&nbsp;==&nbsp;-1&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index--;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;test&nbsp;was&nbsp;found</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::startProc(command,&nbsp;-1,&nbsp;args,&nbsp;argc);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;secondChance&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results[rindex++]-&gt;restart&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">int</span>&nbsp;findDifference&nbsp;(<span style="color:#2c62ba">char</span>&nbsp;*string1,&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*string2)<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Outputs&nbsp;the&nbsp;index&nbsp;of&nbsp;the&nbsp;first&nbsp;character&nbsp;that&nbsp;differs&nbsp;in&nbsp;the&nbsp;two&nbsp;strings<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;string1&nbsp;-&nbsp;The&nbsp;first&nbsp;string&nbsp;to&nbsp;compare<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;string2&nbsp;-&nbsp;The&nbsp;second&nbsp;string&nbsp;to&nbsp;compare<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;The&nbsp;index&nbsp;of&nbsp;the&nbsp;first&nbsp;different&nbsp;character&nbsp;or&nbsp;-1&nbsp;if&nbsp;the&nbsp;same<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;index&nbsp;=&nbsp;0;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Check&nbsp;characters&nbsp;while&nbsp;not&nbsp;at&nbsp;end&nbsp;of&nbsp;either&nbsp;string&nbsp;and&nbsp;they&nbsp;are&nbsp;equal</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;((string1[index]&nbsp;!=&nbsp;<span style="color:#466ba6">'\0'</span>)&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(string2[index]&nbsp;!=&nbsp;<span style="color:#466ba6">'\0'</span>)&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(string1[index]&nbsp;==&nbsp;string2[index]))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++index;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//If&nbsp;we&nbsp;made&nbsp;it&nbsp;to&nbsp;the&nbsp;end&nbsp;of&nbsp;both&nbsp;strings&nbsp;without&nbsp;a&nbsp;difference</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;((string1[index]&nbsp;==&nbsp;<span style="color:#466ba6">'\0'</span>)&nbsp;&amp;&amp;&nbsp;(string2[index]&nbsp;==&nbsp;<span style="color:#466ba6">'\0'</span>))<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;-1;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Otherwise&nbsp;there&nbsp;was&nbsp;a&nbsp;difference</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">return</span>&nbsp;index;<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">void</span>&nbsp;writeResults(Assignment&nbsp;&amp;myAssg,&nbsp;Instruction&nbsp;**instructs,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Instruction&nbsp;**results,&nbsp;Penalty&nbsp;penalties[])<br/>
+<span style="color:#929ca0">/******************************************************************************<br/>
+*&nbsp;Summary:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;Outputs&nbsp;the&nbsp;results&nbsp;of&nbsp;testing&nbsp;the&nbsp;student&nbsp;program&nbsp;to&nbsp;the&nbsp;screen&nbsp;and&nbsp;to<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;various&nbsp;files.<br/>
+*&nbsp;Inputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;&amp;myAssg&nbsp;-&nbsp;The&nbsp;current&nbsp;assignment&nbsp;definition&nbsp;struct<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;**instructs&nbsp;-&nbsp;The&nbsp;instructions&nbsp;that&nbsp;were&nbsp;used&nbsp;to&nbsp;test&nbsp;the&nbsp;student&nbsp;program<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;**results&nbsp;-&nbsp;The&nbsp;results&nbsp;obtained&nbsp;from&nbsp;testing&nbsp;the&nbsp;student&nbsp;program<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;penalties[]&nbsp;-&nbsp;The&nbsp;penalties&nbsp;that&nbsp;were&nbsp;assigned&nbsp;during&nbsp;testing<br/>
+*&nbsp;Outputs:<br/>
+*&nbsp;&nbsp;&nbsp;&nbsp;none<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;index;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;rindex&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;testNum&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;secondChance&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;fileName[100];<br/>
+&nbsp;&nbsp;&nbsp;time_t&nbsp;timeStamp;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*timeLabel;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">ofstream</span>&nbsp;outFile;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">ofstream</span>&nbsp;gradeFile;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">ofstream</span>&nbsp;logFile;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;student&nbsp;program&nbsp;was&nbsp;tested&nbsp;in&nbsp;grade&nbsp;mode&nbsp;(grading</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;files&nbsp;are&nbsp;output.)</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(myAssg.gradeMode)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(fileName,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(fileName,&nbsp;LOGSUFFIX);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Open&nbsp;the&nbsp;file&nbsp;for&nbsp;student&nbsp;program&nbsp;testing&nbsp;output</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile.open(fileName,&nbsp;ios::out);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Open&nbsp;the&nbsp;file&nbsp;for&nbsp;the&nbsp;whole&nbsp;class's&nbsp;testing&nbsp;output</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile.open(CLASSLOGFILE,&nbsp;ios::out&nbsp;|&nbsp;ios::app);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Output&nbsp;the&nbsp;date&nbsp;and&nbsp;time</span><br/>
+&nbsp;&nbsp;&nbsp;timeStamp&nbsp;=&nbsp;time(NULL);<br/>
+&nbsp;&nbsp;&nbsp;timeLabel&nbsp;=&nbsp;ctime(&amp;timeStamp);<br/>
+&nbsp;&nbsp;&nbsp;timeLabel[strlen(timeLabel)&nbsp;-&nbsp;1]&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"\n\n"</span>&nbsp;&lt;&lt;&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;&nbsp;--&nbsp;&nbsp;"</span>;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;timeLabel&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"\n\n"</span>&nbsp;&lt;&lt;&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;&nbsp;--&nbsp;&nbsp;"</span>;<br/>
+&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;timeLabel&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"\n\n"</span>&nbsp;&lt;&lt;&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;&nbsp;--&nbsp;&nbsp;"</span>;<br/>
+&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;timeLabel&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;as&nbsp;many&nbsp;instructions&nbsp;or&nbsp;results&nbsp;as&nbsp;possible</span><br/>
+&nbsp;&nbsp;&nbsp;index&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(instructs[index]&nbsp;&amp;&amp;&nbsp;results[rindex])<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;student&nbsp;program&nbsp;was&nbsp;restarted&nbsp;(due&nbsp;to&nbsp;a&nbsp;crash)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(results[rindex]-&gt;restart)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;crashed&nbsp;even&nbsp;after&nbsp;it&nbsp;was&nbsp;restarted</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(secondChance)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Fast-forward&nbsp;the&nbsp;instructions&nbsp;to&nbsp;the&nbsp;next&nbsp;test</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(instructs[index]&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[index]-&gt;points&nbsp;==&nbsp;-1&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;secondChance&nbsp;=&nbsp;<span style="color:#2c62ba">false</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;there&nbsp;are&nbsp;no&nbsp;more&nbsp;instructions&nbsp;left</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;instructs[index])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">break</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;this&nbsp;is&nbsp;the&nbsp;first&nbsp;time&nbsp;the&nbsp;program&nbsp;crashed</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Rewind&nbsp;the&nbsp;instructions&nbsp;and&nbsp;restart&nbsp;the&nbsp;current&nbsp;test</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(index&nbsp;&gt;&nbsp;0&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;points&nbsp;==&nbsp;-1&nbsp;&amp;&amp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index--;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;secondChance&nbsp;=&nbsp;<span style="color:#2c62ba">true</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Restarted&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Restarted&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Restarted&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;This&nbsp;is&nbsp;here&nbsp;to&nbsp;compensate&nbsp;for&nbsp;the&nbsp;index&nbsp;being&nbsp;incremented&nbsp;at</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;the&nbsp;bottom&nbsp;of&nbsp;the&nbsp;loop.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index--;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;was&nbsp;expected&nbsp;to&nbsp;start&nbsp;executing</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;start)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Started&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Started&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Started&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;was&nbsp;expected&nbsp;to&nbsp;stop&nbsp;executing</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;stop)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;actually&nbsp;stopped</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(results[rindex]-&gt;stop)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Ended&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Ended&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Ended&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;did&nbsp;not&nbsp;stop</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">break</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;was&nbsp;expected&nbsp;to&nbsp;receive&nbsp;input</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;send)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;actually&nbsp;received&nbsp;input</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(results[rindex]-&gt;send)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*newLine;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;actual&nbsp;input&nbsp;matches&nbsp;expected&nbsp;input.&nbsp;&nbsp;This&nbsp;should</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;never&nbsp;be&nbsp;false.&nbsp;&nbsp;No&nbsp;error&nbsp;checking&nbsp;is&nbsp;performed&nbsp;on&nbsp;input&nbsp;sent</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;to&nbsp;a&nbsp;program.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(strcmp(instructs[index]-&gt;send,&nbsp;results[rindex]-&gt;send)&nbsp;==&nbsp;0)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;newLine&nbsp;=&nbsp;strchr(results[rindex]-&gt;send,&nbsp;<span style="color:#466ba6">'\n'</span>);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(newLine)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*newLine&nbsp;=&nbsp;<span style="color:#466ba6">'\0'</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;results[rindex]-&gt;send&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;results[rindex]-&gt;send&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;results[rindex]-&gt;send&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;did&nbsp;not&nbsp;accept&nbsp;input.&nbsp;&nbsp;This&nbsp;should&nbsp;never&nbsp;be</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;true.&nbsp;&nbsp;No&nbsp;error&nbsp;checking&nbsp;is&nbsp;performed&nbsp;on&nbsp;input&nbsp;sent&nbsp;to&nbsp;a</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;program.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;REVERSE&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Could&nbsp;not&nbsp;send:&nbsp;"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;instructs[index]-&gt;send&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;REVERSE&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Could&nbsp;not&nbsp;send:&nbsp;"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;instructs[index]-&gt;send&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;REVERSE&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Could&nbsp;not&nbsp;send:&nbsp;"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;instructs[index]-&gt;send&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;was&nbsp;expected&nbsp;to&nbsp;provide&nbsp;output</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span>&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]-&gt;recv)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;program&nbsp;actually&nbsp;provided&nbsp;output</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(results[rindex]-&gt;recv)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;this&nbsp;is&nbsp;the&nbsp;first&nbsp;instruction&nbsp;after&nbsp;the&nbsp;beginning&nbsp;of&nbsp;a</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;new&nbsp;test,&nbsp;increment&nbsp;the&nbsp;test&nbsp;number.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(index&nbsp;&gt;&nbsp;0&nbsp;&amp;&amp;&nbsp;instructs[index&nbsp;-&nbsp;1]-&gt;points&nbsp;!=&nbsp;-1<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;&amp;&nbsp;!&nbsp;secondChance)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;testNum++;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Whether&nbsp;or&nbsp;not&nbsp;the&nbsp;expected&nbsp;and&nbsp;actual&nbsp;outputs&nbsp;are&nbsp;equal</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">bool</span>&nbsp;equal&nbsp;=&nbsp;(strcmp(instructs[index]-&gt;recv,<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;results[rindex]-&gt;recv)&nbsp;==&nbsp;0);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Prints&nbsp;the&nbsp;arrow&nbsp;at&nbsp;the&nbsp;location&nbsp;of&nbsp;the&nbsp;error&nbsp;found</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!equal)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;location&nbsp;=&nbsp;6&nbsp;+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//Where&nbsp;the&nbsp;error&nbsp;is.</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;findDifference&nbsp;(results[rindex]-&gt;recv,&nbsp;instructs[index]-&gt;recv);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;setw&nbsp;(location)&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"v"</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;setw&nbsp;(location)&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"v"</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;setw&nbsp;(location)&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"v"</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;setw(3)&nbsp;&lt;&lt;&nbsp;testNum&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&gt;&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;RESET<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;results[rindex]-&gt;recv&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;flush;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;testNum&nbsp;&lt;&lt;&nbsp;setw(3)&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&gt;&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;RESET<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;results[rindex]-&gt;recv&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;flush;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;testNum&nbsp;&lt;&lt;&nbsp;setw(3)&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&gt;&nbsp;"</span>&nbsp;&lt;&lt;&nbsp;RESET<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;results[rindex]-&gt;recv&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;flush;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;actual&nbsp;output&nbsp;did&nbsp;not&nbsp;match&nbsp;the&nbsp;expected&nbsp;output</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!equal)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;REVERSE&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Exp:&nbsp;"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;instructs[index]-&gt;recv&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;REVERSE&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Exp:&nbsp;"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;instructs[index]-&gt;recv&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;REVERSE&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"Exp:&nbsp;"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;instructs[index]-&gt;recv&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"|"</span>&nbsp;&lt;&lt;&nbsp;RESET;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;This&nbsp;is&nbsp;the&nbsp;bottom&nbsp;of&nbsp;the&nbsp;while&nbsp;loop</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rindex++;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;either&nbsp;the&nbsp;instruction&nbsp;or&nbsp;the&nbsp;result&nbsp;array&nbsp;was&nbsp;not&nbsp;completely</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;used,&nbsp;the&nbsp;program&nbsp;must&nbsp;have&nbsp;terminated&nbsp;early.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(instructs[index]&nbsp;||&nbsp;results[rindex])<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Terminated&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Terminated&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;BOLD&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"&lt;Program&nbsp;Terminated&gt;"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Output&nbsp;a&nbsp;list&nbsp;of&nbsp;all&nbsp;penalties&nbsp;accumulated&nbsp;during&nbsp;testing</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\n'</span>&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"ERROR&nbsp;SUMMARY:"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\n'</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\n'</span>&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"ERROR&nbsp;SUMMARY:"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\n'</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\n'</span>&nbsp;&lt;&lt;&nbsp;UL&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"ERROR&nbsp;SUMMARY:"</span>&nbsp;&lt;&lt;&nbsp;RESET&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\n'</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;testing&nbsp;occured&nbsp;in&nbsp;grade&nbsp;mode&nbsp;then&nbsp;output&nbsp;the&nbsp;penalties&nbsp;to</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;their&nbsp;own&nbsp;files&nbsp;for&nbsp;easy&nbsp;retrieval&nbsp;by&nbsp;a&nbsp;teacher.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(myAssg.gradeMode)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(fileName,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(fileName,&nbsp;GRADESUFFIX);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gradeFile.open(fileName,&nbsp;ios::out&nbsp;|&nbsp;ios::app);<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;The&nbsp;first&nbsp;penalty&nbsp;in&nbsp;the&nbsp;array&nbsp;is&nbsp;reserved&nbsp;for&nbsp;use&nbsp;by&nbsp;the&nbsp;Process</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;class.&nbsp;&nbsp;There&nbsp;may&nbsp;or&nbsp;may&nbsp;not&nbsp;be&nbsp;such&nbsp;a&nbsp;penalty.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(penalties[0].comment[0])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">else</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index&nbsp;=&nbsp;1;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;every&nbsp;penalty&nbsp;in&nbsp;the&nbsp;array&nbsp;and&nbsp;output&nbsp;them.</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(penalties[index].comment[0])<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;penalties[index].comment&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;gradeFile&nbsp;&lt;&lt;&nbsp;penalties[index].penalty&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\t'</span>&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;penalties[index].comment&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;penalties[index].penalty&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">'\t'</span>&nbsp;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;&lt;&nbsp;penalties[index].comment&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;penalties[index].comment&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;first&nbsp;to&nbsp;penalties&nbsp;in&nbsp;the&nbsp;array&nbsp;are&nbsp;empty,&nbsp;the&nbsp;program&nbsp;ran</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flawlessly&nbsp;(without&nbsp;any&nbsp;penalties.)</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;penalties[0].comment[0]&nbsp;&amp;&amp;&nbsp;!&nbsp;penalties[1].comment[0])<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"No&nbsp;Errors"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"No&nbsp;Errors"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#466ba6">"No&nbsp;Errors"</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">cout</span>&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;outFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+&nbsp;&nbsp;&nbsp;logFile&nbsp;&lt;&lt;&nbsp;<span style="color:#2c62ba">endl</span>;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;gradeFile.close();<br/>
+&nbsp;&nbsp;&nbsp;outFile.close();<br/>
+&nbsp;&nbsp;&nbsp;logFile.close();<br/>
+}<br/>
+<br/>
+<br/>
+<span style="color:#2c62ba">main</span>(<span style="color:#2c62ba">int</span>&nbsp;argc,&nbsp;<span style="color:#2c62ba">char</span>&nbsp;*argv[])<br/>
+<span style="color:#929ca0">/*******************************************************************************<br/>
+*<br/>
+*******************************************************************************/</span><br/>
+{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Holds&nbsp;the&nbsp;assignment&nbsp;definition&nbsp;data</span><br/>
+&nbsp;&nbsp;&nbsp;Assignment&nbsp;myAssg;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Holds&nbsp;the&nbsp;test&nbsp;instructions</span><br/>
+&nbsp;&nbsp;&nbsp;Instruction&nbsp;**myInstructs&nbsp;=&nbsp;new&nbsp;Instruction*[MAXINSTRUCTS];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Holds&nbsp;the&nbsp;testing&nbsp;results</span><br/>
+&nbsp;&nbsp;&nbsp;Instruction&nbsp;**myResults&nbsp;=&nbsp;new&nbsp;Instruction*[MAXINSTRUCTS];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Holds&nbsp;the&nbsp;testing&nbsp;penalties</span><br/>
+&nbsp;&nbsp;&nbsp;Penalty&nbsp;*myPenalties&nbsp;=&nbsp;new&nbsp;Penalty[MAXPENALTIES];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">char</span>&nbsp;fileName[100];<br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">int</span>&nbsp;index;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Erase&nbsp;the&nbsp;class&nbsp;log&nbsp;file&nbsp;if&nbsp;it&nbsp;exists.&nbsp;&nbsp;I&nbsp;can't&nbsp;remember&nbsp;why&nbsp;this</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;was&nbsp;necessary.</span><br/>
+&nbsp;&nbsp;&nbsp;unlink(CLASSLOGFILE);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;getCommandLine(argc,&nbsp;argv,&nbsp;myAssg);<br/>
+&nbsp;&nbsp;&nbsp;getAssgFile(myAssg);<br/>
+&nbsp;&nbsp;&nbsp;getInstructions(myAssg,&nbsp;myInstructs);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Set&nbsp;the&nbsp;penalty&nbsp;for&nbsp;a&nbsp;time&nbsp;out</span><br/>
+&nbsp;&nbsp;&nbsp;Process::setTimePenalty(myAssg.programTimePenalty);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Loop&nbsp;through&nbsp;every&nbsp;source&nbsp;file&nbsp;listed&nbsp;in&nbsp;the&nbsp;command&nbsp;line</span><br/>
+&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">for</span>&nbsp;(<span style="color:#2c62ba">int</span>&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;myAssg.sourceCount;&nbsp;i++)<br/>
+&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Reset&nbsp;the&nbsp;penalty&nbsp;for&nbsp;a&nbsp;program&nbsp;crash</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Process::setPenalty(&amp;myPenalties[0]);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index&nbsp;=&nbsp;0;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myAssg.sourceIndex&nbsp;=&nbsp;i;<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;getResults(myAssg,&nbsp;myInstructs,&nbsp;myResults,&nbsp;myPenalties);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;writeResults(myAssg,&nbsp;myInstructs,&nbsp;myResults,&nbsp;myPenalties);<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;If&nbsp;the&nbsp;testing&nbsp;is&nbsp;not&nbsp;occuring&nbsp;in&nbsp;grade&nbsp;mode&nbsp;erase&nbsp;the&nbsp;compiler</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;output&nbsp;(including&nbsp;the&nbsp;executable&nbsp;file.)</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">if</span>&nbsp;(!&nbsp;myAssg.gradeMode)<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(fileName,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(fileName,&nbsp;EXESUFFIX);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unlink(fileName);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcpy(fileName,&nbsp;myAssg.sourceFiles[myAssg.sourceIndex]);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;strcat(fileName,&nbsp;COMPILESUFFIX);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unlink(fileName);<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Reset&nbsp;the&nbsp;penalty&nbsp;array&nbsp;for&nbsp;the&nbsp;next&nbsp;program&nbsp;test</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;delete[]&nbsp;myPenalties;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myPenalties&nbsp;=&nbsp;new&nbsp;Penalty[MAXPENALTIES];<br/>
+<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#929ca0">//&nbsp;---&nbsp;Reset&nbsp;the&nbsp;results&nbsp;array&nbsp;for&nbsp;the&nbsp;next&nbsp;program&nbsp;test</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">while</span>&nbsp;(myResults[index])<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#2c62ba">delete</span>&nbsp;myResults[index];<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;myResults[index++]&nbsp;=&nbsp;NULL;<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br/>
+&nbsp;&nbsp;&nbsp;}<br/>
+}<br/>
+<br/>
+ </p>
+</div></body></html>
