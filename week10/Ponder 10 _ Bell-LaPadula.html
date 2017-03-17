@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<!-- saved from url=(0095)https://content.byui.edu/file/2390954c-eadb-4592-aa96-5a29275f9404/1/Ponder/470.10.Program.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+	<title>Ponder 10 : Bell-LaPadula</title>
+    <link href="./Ponder 10 _ Bell-LaPadula_files/styles.css" rel="stylesheet" type="text/css"> 
+</head>
+<body>
+  <div id="main" class="splash">
+    <div id="header">
+       <img class="banner" alt="CS 470 Banner" title="CS 470 Banner" src="./Ponder 10 _ Bell-LaPadula_files/470.3.Banner.jpg">
+    </div> <!-- id="header" -->
+    <article>
+    <h1>Ponder 10 : Bell-LaPadula</h1>
+    <h5>Due Saturday at 5:00 PM MST</h5>
+    
+    <p>It is often necessary for a computer system to provide Confidentiality assurances 
+    		to a data store when more than one type of user requires access to the system. 
+            Your assignment is to retrofit an existing program by implementing the Bell-LaPadula. 
+            The following data flow diagram describes the current operation of the system:</p>
+    <img src="./Ponder 10 _ Bell-LaPadula_files/470.10.Program.GIF" border="0" alt="Data Flow Diagram" title="Data Flow Diagram" style="width:100%">
+    
+    <p>The current grades program gives any user unlimited authority to change anyone's grades. 
+    		With the changes you will make, you will have three classes of users:</p>
+    
+    <ul>
+      <li><b>Bob, Hans</b>: can view any grade</li>
+      <li><b>Sam, Sue, Sly</b>: can only view their own grades</li>
+      <li><b>Everyone else</b>: cannot view any grade</li>
+    </ul>
+
+	<h3>Resources</h3>
+    
+    <p>Please start with <code>/home/cs470/week10/week10.cpp</code>. 
+    		This file will access the following grades file:</p>
+        
+    <div class="code">
+      <code>/home/cs470/week10/sam.txt<br>
+/home/cs470/week10/sue.txt<br>
+/home/cs470/week10/sly.txt</code>
+    </div>
+    
+    <p>Additionally, the following <code>testBed</code> will be made available:</p>
+    
+    <div class="code">
+      <code>testBed cs470/week10 week10.cpp</code>
+    </div>
+    
+    <p><code>testBed</code> will change the three grade files. 
+    		Before you run <code>testBed</code>, please execute the following command:</p>
+
+    <div class="code">
+      <code>/home/cs470/week10/refresh</code>
+    </div>
+
+	<p>Finally, you can try running my version of the program with:</p>
+    
+    <div class="code">
+      <code>/home/cs470/week10/week10.out</code>
+    </div>
+    
+    <p>To get full credit for this assignment, please:</p>
+    <ul>
+      <li>Implement the Bell-LaPadula data structure in your code. 
+      		Make sure these data structures work the way it is described in the text.</li>
+      <li>Make sure that resource allocation decisions are made at the "best possible location" 
+      		to provide confidentiality and integrity assurances.
+            This is probably best done at the <code>StudentGrade</code> part of the program.</li>
+      <li>Make it "easy and intuitive" to change policy settings. 
+      		This means adding new users or groups should not require any modification of the logic of the program. 
+            For this assignment, it is OK to put the policy settings in constant data structures.</li>
+    </ul>
+    
+    <h3>Example</h3>
+    <p>The following is an example of how the program will function when the user correctly authenticates as Professor Bob. 
+    		In this case, he has access to view all grades. 
+            This will be have exactly the same as if no access control code were present in the program. 
+            User input is <u>underlined</u>:</p>
+    <div class="code"><code>Username: <u>Bob</u><br>
+Password: <u>passwordBob</u><br>
+Which student's grade would you like to review?<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Samual Stevenson<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Susan Bakersfield<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sylvester Stallone<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No student, exit<br>
+&gt; <u>1</u><br>
+Editing the scores of Samual Stevenson<br>
+Score list<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Score&nbsp;&nbsp;&nbsp;Weight<br>
+(1)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;77%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.4<br>
+(2)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;100%&nbsp;&nbsp;&nbsp;&nbsp;0.2<br>
+(3)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;95%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.2<br>
+(4)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;87%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.2<br>
+(0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Exit<br>
+Which score would you like to edit (0-4): <u>0</u><br>
+Student name:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Samual Stevenson<br>
+Grade:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;87.2% : B+<br>
+Detailed score:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Score&nbsp;&nbsp;&nbsp;Weight<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;77%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.4<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;100%&nbsp;&nbsp;&nbsp;&nbsp;0.2<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;95%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.2<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;87%&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.2<br>
+---------------------------------------------------<br>
+Which student's grade would you like to review?<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Samual Stevenson<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Susan Bakersfield<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sylvester Stallone<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No student, exit<br>
+&gt; <u>0</u></code></div>
+    <p>The next example is authenticated with Sly. He can view his own grades just like Professor Bob. However, no information is present when he attempts to view Sue's grades:</p>
+        <div class="code"><code>Username: <u>Sly</u><br>
+Password: <u>passwordSly</u><br>
+Which student's grade would you like to review?<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Samual Stevenson<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Susan Bakersfield<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sylvester Stallone<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No student, exit<br>
+&gt; <u>2</u><br>
+Editing the scores of Susan Bakersfield<br>
+Score list<br>
+(1)<br>
+(2)<br>
+(3)<br>
+(4)<br>
+(0)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Exit<br>
+Which score would you like to edit (0-4): <u>0</u><br>
+---------------------------------------------------<br>
+Which student's grade would you like to review?<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Samual Stevenson<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Susan Bakersfield<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Sylvester Stallone<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No student, exit<br>
+&gt; <u>0</u></code></div>
+
+    <h3>Grading</h3>
+    <p>Your program will be graded according to the following rubric:</p>
+    <table class="rubric">
+      <tbody>
+        <tr>
+          <th>&nbsp;</th>
+          <th>Exceptional<br>100%</th>
+          <th>Good       <br>90% </th>
+          <th>Acceptable <br>70% </th>
+          <th>Developing <br>50% </th>
+          <th>Missing    <br>0%  </th>
+        </tr>
+        <tr>
+             <th>Data structures<br>20%</th> 
+<!-- 100 --> <td>Solution is elegant and efficient</td> 
+<!-- 90  --> <td>Every data structure is implemented and utilized correctly</td> 
+<!-- 70  --> <td>The basic structure of Bell-LaPadula are implemented</td>
+<!-- 50  --> <td>The Bell-LaPadula functionality functions as expected but does not follow the Bell-LaPadula design</td> 
+<!-- 0   --> <td>The code does not follow the design or the functionality of the Bell-LaPadula mechanism</td> 
+        </tr>
+        <tr>
+             <th>Resource-level protection<br>40%</th>
+<!-- 100 --> <td>Every resource utilization and entity are validated with Bell-LaPadula at access time</td> 
+<!-- 90  --> <td>Every resource utilization and entity are validated with Bell-LaPadula near access time</td>
+<!-- 70  --> <td>All resources pass through Bell-LaPadula tests before being accessed</td>
+<!-- 50  --> <td>One resource can be reached without passing an Bell-LaPadula test</td> 
+<!-- 0   --> <td>Bell-LaPadula enforcement does not occur at the resource level</td> 
+        </tr>
+        <tr>
+             <th>Policy setting<br>20%</th>
+<!-- 100 --> <td>It is "easy and intuitive" to set user and resource policy from within the code</td> 
+<!-- 90  --> <td>Bell-LaPadula setting and user permission granting can be performed without changing any program logic</td>
+<!-- 70  --> <td>User or resource policy can be set without changing program logic</td>
+<!-- 50  --> <td>It is possible to change resource or user policy without changing too much code</td>
+<!-- 0   --> <td>The resource and user policy settings are algorithmically set</td>
+        </tr>
+        <tr>
+             <th>Code quality<br>20%</th>
+<!-- 100 --> <td>Great variable names, great comments, no style errors</td> 
+<!-- 90  --> <td>No style checker errors</td>
+<!-- 70  --> <td>A few style checker errors</td>
+<!-- 50  --> <td>Misleading variable names or gross style errors</td>
+<!-- 0   --> <td>Little effort was spent on style</td>
+        </tr>
+      </tbody>
+    </table>
+  <iframe src="./Ponder 10 _ Bell-LaPadula_files/saved_resource.html" height="500px" width="100%"></iframe>
+   </article>
+  </div>
+ 
+
+</body></html>
